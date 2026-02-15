@@ -1,25 +1,42 @@
 import FontAwesome from '@expo/vector-icons/FontAwesome';
-import { DarkTheme, DefaultTheme, ThemeProvider } from '@react-navigation/native';
+import { ThemeProvider, DefaultTheme } from '@react-navigation/native';
 import { useFonts } from 'expo-font';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
-import 'react-native-reanimated';
-
-import { useColorScheme } from '@/components/useColorScheme';
+import { Suspense, useEffect } from 'react';
+import { View, Text, ActivityIndicator } from 'react-native';
+import { SQLiteProvider } from 'expo-sqlite';
+import { runMigrations } from '@/src/core/db/migrations';
+import { DATABASE_NAME } from '@/src/core/db/database';
+import { runMonthTransition } from '@/src/features/budget/utils/month-transition';
+import { useSQLiteContext } from 'expo-sqlite';
 
 export {
-  // Catch any errors thrown by the Layout component.
   ErrorBoundary,
 } from 'expo-router';
 
 export const unstable_settings = {
-  // Ensure that reloading on `/modal` keeps a back button present.
-  initialRouteName: '(tabs)',
+  initialRouteName: 'index',
 };
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
+
+function MonthTransitionRunner() {
+  const db = useSQLiteContext();
+  useEffect(() => {
+    runMonthTransition(db);
+  }, [db]);
+  return null;
+}
+
+function LoadingFallback() {
+  return (
+    <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+      <ActivityIndicator size="large" color="#2563eb" />
+      <Text style={{ marginTop: 12, color: '#64748b' }}>Loading...</Text>
+    </View>
+  );
+}
 
 export default function RootLayout() {
   const [loaded, error] = useFonts({
@@ -27,7 +44,6 @@ export default function RootLayout() {
     ...FontAwesome.font,
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
     if (error) throw error;
   }, [error]);
@@ -42,18 +58,19 @@ export default function RootLayout() {
     return null;
   }
 
-  return <RootLayoutNav />;
-}
-
-function RootLayoutNav() {
-  const colorScheme = useColorScheme();
-
   return (
-    <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Stack>
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="modal" options={{ presentation: 'modal' }} />
-      </Stack>
-    </ThemeProvider>
+    <Suspense fallback={<LoadingFallback />}>
+      <SQLiteProvider databaseName={DATABASE_NAME} onInit={runMigrations} useSuspense>
+        <ThemeProvider value={DefaultTheme}>
+          <MonthTransitionRunner />
+          <Stack>
+            <Stack.Screen name="index" options={{ headerShown: false }} />
+            <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
+            <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+            <Stack.Screen name="+not-found" />
+          </Stack>
+        </ThemeProvider>
+      </SQLiteProvider>
+    </Suspense>
   );
 }
