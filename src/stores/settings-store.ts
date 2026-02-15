@@ -1,5 +1,7 @@
 import { create } from 'zustand';
 import * as SecureStore from 'expo-secure-store';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { getSetting } from '@/src/core/db/queries/settings';
 
 interface SettingsState {
   apiKey: string | null;
@@ -10,6 +12,7 @@ interface SettingsState {
   setApiKey: (key: string) => Promise<void>;
   setMonthlyTarget: (target: number) => void;
   setSavingsGoal: (name: string, amount: number) => void;
+  hydrateFromDB: (db: SQLiteDatabase) => Promise<void>;
 }
 
 const API_KEY_STORAGE_KEY = 'anthropic_api_key';
@@ -34,4 +37,15 @@ export const useSettingsStore = create<SettingsState>((set) => ({
 
   setSavingsGoal: (name: string, amount: number) =>
     set({ savingsGoalName: name, savingsGoalAmount: amount }),
+
+  hydrateFromDB: async (db: SQLiteDatabase) => {
+    const target = await getSetting(db, 'monthly_leisure_target');
+    const goalName = await getSetting(db, 'savings_goal_name');
+    const goalAmount = await getSetting(db, 'savings_goal_amount');
+    set({
+      monthlyTarget: target ? parseFloat(target) : 0,
+      savingsGoalName: goalName ?? '',
+      savingsGoalAmount: goalAmount ? parseFloat(goalAmount) : 0,
+    });
+  },
 }));

@@ -5,11 +5,13 @@ import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { Suspense, useEffect } from 'react';
 import { View, Text, ActivityIndicator } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
 import { SQLiteProvider } from 'expo-sqlite';
 import { runMigrations } from '@/src/core/db/migrations';
 import { DATABASE_NAME } from '@/src/core/db/database';
 import { runMonthTransition } from '@/src/features/budget/utils/month-transition';
 import { useSQLiteContext } from 'expo-sqlite';
+import { useSettingsStore } from '@/src/stores/settings-store';
 
 export {
   ErrorBoundary,
@@ -21,10 +23,12 @@ export const unstable_settings = {
 
 SplashScreen.preventAutoHideAsync();
 
-function MonthTransitionRunner() {
+function StartupRunner() {
   const db = useSQLiteContext();
   useEffect(() => {
     runMonthTransition(db);
+    useSettingsStore.getState().loadApiKey();
+    useSettingsStore.getState().hydrateFromDB(db);
   }, [db]);
   return null;
 }
@@ -62,7 +66,8 @@ export default function RootLayout() {
     <Suspense fallback={<LoadingFallback />}>
       <SQLiteProvider databaseName={DATABASE_NAME} onInit={runMigrations} useSuspense>
         <ThemeProvider value={DefaultTheme}>
-          <MonthTransitionRunner />
+          <StatusBar style="dark" />
+          <StartupRunner />
           <Stack>
             <Stack.Screen name="index" options={{ headerShown: false }} />
             <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />

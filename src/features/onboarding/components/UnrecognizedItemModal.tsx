@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { NormalizedTransaction } from '@/src/types/csv';
 import { LEISURE_CATEGORIES, CATEGORY_KEYS } from '@/src/core/constants/categories';
 import { formatNIS } from '@/src/utils/currency';
@@ -19,12 +20,13 @@ interface Props {
 }
 
 export function UnrecognizedItemModal({ visible, item, onClassify, onSkip }: Props) {
+  const insets = useSafeAreaInsets();
   if (!item) return null;
 
   return (
     <Modal visible={visible} transparent animationType="slide">
       <View style={styles.overlay}>
-        <View style={styles.modal}>
+        <View style={[styles.modal, { paddingBottom: Math.max(24, insets.bottom) }]}>
           <Text style={styles.title}>Classify Transaction</Text>
           <Text style={styles.description}>
             {item.description} - {formatNIS(item.amount)}

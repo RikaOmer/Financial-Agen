@@ -11,6 +11,7 @@ interface BudgetState {
   snapshot: BudgetSnapshot;
   bigEvents: BigEvent[];
   isLoading: boolean;
+  error: string | null;
   refreshBudget: (db: SQLiteDatabase) => Promise<void>;
 }
 
@@ -30,9 +31,10 @@ export const useBudgetStore = create<BudgetState>((set) => ({
   snapshot: initialSnapshot,
   bigEvents: [],
   isLoading: false,
+  error: null,
 
   refreshBudget: async (db: SQLiteDatabase) => {
-    set({ isLoading: true });
+    set({ isLoading: true, error: null });
     try {
       const now = new Date();
       const year = now.getFullYear();
@@ -50,7 +52,8 @@ export const useBudgetStore = create<BudgetState>((set) => ({
 
       // Big events
       const bigEventsJson = await getBigEvents(db);
-      const bigEvents: BigEvent[] = JSON.parse(bigEventsJson);
+      let bigEvents: BigEvent[] = [];
+      try { bigEvents = JSON.parse(bigEventsJson); } catch { /* default empty */ }
       const bigEventAmortization = bigEvents.reduce(
         (sum, e) => sum + (e.amortizedDaily || 0),
         0
@@ -92,8 +95,11 @@ export const useBudgetStore = create<BudgetState>((set) => ({
         bigEvents,
         isLoading: false,
       });
-    } catch {
-      set({ isLoading: false });
+    } catch (err) {
+      set({
+        isLoading: false,
+        error: err instanceof Error ? err.message : 'Failed to refresh budget',
+      });
     }
   },
 }));

@@ -10,7 +10,3 @@ export function isValidDescription(value: string): boolean {
 export function isValidApiKey(key: string): boolean {
   return key.startsWith('sk-ant-') && key.length > 20;
 }
-
-export function isValidTarget(target: number, baseline: number): boolean {
-  return target > 0 && target <= baseline * 1.5;
-}

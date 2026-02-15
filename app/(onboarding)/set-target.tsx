@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, Alert, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useOnboardingStore } from '@/src/stores/onboarding-store';
@@ -16,21 +16,33 @@ export default function SetTargetScreen() {
   const [savingsName, setSavingsName] = useState('');
   const [savingsAmount, setSavingsAmount] = useState('');
 
-  const handleFinish = async () => {
+  const handleFinish = () => {
     const targetNum = parseFloat(target) || 0;
-    await setSetting(db, 'monthly_leisure_target', String(targetNum));
-    await setSetting(db, 'baseline_avg', String(baselineAvg));
-    setMonthlyTarget(targetNum);
+    Alert.alert(
+      'Confirm Setup',
+      `Monthly target: ${formatNIS(targetNum)}. Start tracking?`,
+      [
+        { text: 'Go Back', style: 'cancel' },
+        {
+          text: 'Start',
+          onPress: async () => {
+            await setSetting(db, 'monthly_leisure_target', String(targetNum));
+            await setSetting(db, 'baseline_avg', String(baselineAvg));
+            setMonthlyTarget(targetNum);
 
-    if (savingsName && savingsAmount) {
-      await setSetting(db, 'savings_goal_name', savingsName);
-      await setSetting(db, 'savings_goal_amount', savingsAmount);
-    }
+            if (savingsName && savingsAmount) {
+              await setSetting(db, 'savings_goal_name', savingsName);
+              await setSetting(db, 'savings_goal_amount', savingsAmount);
+            }
 
-    await setSetting(db, 'onboarding_completed', 'true');
-    await setSetting(db, 'last_active_month', new Date().toISOString().substring(0, 7));
+            await setSetting(db, 'onboarding_completed', 'true');
+            await setSetting(db, 'last_active_month', new Date().toISOString().substring(0, 7));
 
-    router.replace('/(tabs)');
+            router.replace('/(tabs)');
+          },
+        },
+      ]
+    );
   };
 
   return (

@@ -15,8 +15,10 @@ import { CriticVerdictCard } from '@/src/features/agent/components/CriticVerdict
 import { StrictnessBadge } from '@/src/features/agent/components/StrictnessBadge';
 import { useBudgetStore } from '@/src/stores/budget-store';
 import { insertTransaction } from '@/src/core/db/queries/transactions';
-import { LEISURE_CATEGORIES, CATEGORY_KEYS } from '@/src/core/constants/categories';
+import { CategorySelector } from '@/src/components/CategorySelector';
 import { formatNIS } from '@/src/utils/currency';
+import { formStyles } from '@/src/styles/form-styles';
+import { STRICT_MODE_THRESHOLD } from '@/src/core/constants/app-constants';
 
 export default function AskCriticScreen() {
   const db = useSQLiteContext();
@@ -28,7 +30,7 @@ export default function AskCriticScreen() {
   const [category, setCategory] = useState('food_dining');
 
   const priceNum = parseFloat(price) || 0;
-  const isStrict = priceNum > snapshot.dailyBudget * 1.5;
+  const isStrict = priceNum > snapshot.dailyBudget * STRICT_MODE_THRESHOLD;
 
   const handleEvaluate = () => {
     if (!itemName.trim() || priceNum <= 0) {
@@ -46,7 +48,8 @@ export default function AskCriticScreen() {
       timestamp: new Date().toISOString(),
     });
     await refreshBudget(db);
-    Alert.alert('Recorded', `${formatNIS(priceNum)} added to today's expenses.`);
+    const updatedBudget = useBudgetStore.getState().snapshot.dailyBudget;
+    Alert.alert('Recorded', `${formatNIS(priceNum)} added. New daily budget: ${formatNIS(updatedBudget)}`);
     resetForm();
   };
 
@@ -61,42 +64,32 @@ export default function AskCriticScreen() {
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.budgetHint}>Daily budget: {formatNIS(snapshot.dailyBudget)}</Text>
+    <ScrollView style={formStyles.container} contentContainerStyle={formStyles.content} keyboardShouldPersistTaps="handled">
+      <Text style={formStyles.budgetHint}>Daily budget: {formatNIS(snapshot.dailyBudget)}</Text>
 
       {!verdict && status !== 'loading' && (
         <>
-          <Text style={styles.label}>What do you want to buy?</Text>
+          <Text style={formStyles.label}>What do you want to buy?</Text>
           <TextInput
-            style={styles.input}
+            style={formStyles.input}
             value={itemName}
             onChangeText={setItemName}
             placeholder="e.g. Burger, Movie ticket"
+            returnKeyType="next"
           />
 
-          <Text style={styles.label}>Price (NIS)</Text>
+          <Text style={formStyles.label}>Price (NIS)</Text>
           <TextInput
-            style={styles.input}
+            style={formStyles.input}
             value={price}
             onChangeText={setPrice}
             placeholder="0.00"
             keyboardType="numeric"
+            returnKeyType="done"
           />
 
-          <Text style={styles.label}>Category</Text>
-          <View style={styles.categories}>
-            {CATEGORY_KEYS.filter((k) => k !== 'other').map((key) => (
-              <TouchableOpacity
-                key={key}
-                style={[styles.categoryChip, category === key && styles.categoryChipActive]}
-                onPress={() => setCategory(key)}
-              >
-                <Text style={[styles.categoryText, category === key && styles.categoryTextActive]}>
-                  {LEISURE_CATEGORIES[key].label}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={formStyles.label}>Category</Text>
+          <CategorySelector selected={category} onSelect={setCategory} />
 
           <StrictnessBadge isStrict={isStrict} />
 
@@ -140,16 +133,6 @@ export default function AskCriticScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  content: { padding: 24, paddingBottom: 40 },
-  budgetHint: { fontSize: 15, color: '#2563eb', fontWeight: '600', marginBottom: 20, textAlign: 'center', backgroundColor: '#eff6ff', padding: 12, borderRadius: 8 },
-  label: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 16 },
-  input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 16 },
-  categories: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  categoryChip: { paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-  categoryChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  categoryText: { fontSize: 13, color: '#64748b' },
-  categoryTextActive: { color: '#fff', fontWeight: '600' },
   evaluateBtn: { backgroundColor: '#7c3aed', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
   evaluateText: { color: '#fff', fontSize: 17, fontWeight: '600' },
   loadingContainer: { alignItems: 'center', paddingVertical: 40 },

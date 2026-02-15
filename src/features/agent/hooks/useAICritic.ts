@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useSettingsStore } from '@/src/stores/settings-store';
 import { useBudgetStore } from '@/src/stores/budget-store';
@@ -9,6 +9,7 @@ import { buildSystemPrompt, buildUserPrompt } from '../utils/prompt-builder';
 import { parseVerdictResponse } from '../utils/response-parser';
 import { validatePrice } from '../utils/price-validator';
 import type { CriticVerdict, CriticRequest } from '@/src/types/agent';
+import { STRICT_MODE_THRESHOLD, AI_COOLDOWN_MS } from '@/src/core/constants/app-constants';
 
 type CriticStatus = 'idle' | 'loading' | 'done' | 'error';
 
@@ -20,15 +21,23 @@ export function useAICritic() {
   const [verdict, setVerdict] = useState<CriticVerdict | null>(null);
   const [status, setStatus] = useState<CriticStatus>('idle');
   const [error, setError] = useState<string | null>(null);
+  const lastCallTime = useRef(0);
 
   const evaluate = useCallback(
     async (itemName: string, price: number, category: string) => {
+      const now = Date.now();
+      if (now - lastCallTime.current < AI_COOLDOWN_MS) {
+        setError('Please wait a few seconds before trying again.');
+        setStatus('error');
+        return;
+      }
+      lastCallTime.current = now;
       setStatus('loading');
       setError(null);
       setVerdict(null);
 
       try {
-        const isStrictMode = price > snapshot.dailyBudget * 1.5;
+        const isStrictMode = price > snapshot.dailyBudget * STRICT_MODE_THRESHOLD;
         const historicalMedian = await getMedianForCategory(db, category);
         const savingsGoal = await getSavingsGoal(db);
         const wishlistFund = await getWishlistFund(db);

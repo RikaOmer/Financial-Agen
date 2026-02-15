@@ -33,7 +33,7 @@ export function detectInstallments(
         if (seen.has(key)) continue;
         seen.add(key);
 
-        const remaining = total - current + 1;
+        const remaining = total - current;
         commitments.push({
           name,
           amount: tx.amount,
