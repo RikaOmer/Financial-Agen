@@ -103,7 +103,7 @@ const styles = StyleSheet.create({
   offsetBadge: { backgroundColor: '#ecfdf5', padding: 12, borderRadius: 8, marginBottom: 12, borderWidth: 1, borderColor: '#a7f3d0' },
   offsetText: { color: '#047857', fontSize: 13, fontWeight: '500' },
   sectionTitle: { fontSize: 17, fontWeight: '600', color: '#1a1a1a', marginTop: 16, marginBottom: 8 },
-  emptyText: { color: '#94a3b8', fontStyle: 'italic', paddingVertical: 12 },
+  emptyText: { color: '#64748b', fontStyle: 'italic', paddingVertical: 12 },
   txRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   txDesc: { flex: 1, fontSize: 15, color: '#374151' },
   txAmount: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginLeft: 12 },

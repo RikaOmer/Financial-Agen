@@ -1,6 +1,5 @@
 import type { NormalizedTransaction } from '@/src/types/csv';
-
-const REDUCTION_FACTOR = 0.8;
+import { BASELINE_REDUCTION_FACTOR } from '@/src/core/constants/app-constants';
 
 export function calculateBaseline(transactions: NormalizedTransaction[]): {
   baselineAvg: number;
@@ -23,7 +22,7 @@ export function calculateBaseline(transactions: NormalizedTransaction[]): {
 
   const totals = Array.from(monthlyTotals.values());
   const baselineAvg = totals.reduce((sum, v) => sum + v, 0) / totals.length;
-  const proposedTarget = Math.round(baselineAvg * REDUCTION_FACTOR);
+  const proposedTarget = Math.round(baselineAvg * BASELINE_REDUCTION_FACTOR);
 
   return { baselineAvg: Math.round(baselineAvg), proposedTarget };
 }

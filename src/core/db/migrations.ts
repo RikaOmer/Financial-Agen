@@ -2,7 +2,6 @@ import type { SQLiteDatabase } from 'expo-sqlite';
 
 export async function runMigrations(db: SQLiteDatabase): Promise<void> {
   await db.execAsync(`PRAGMA journal_mode = WAL;`);
-  await db.execAsync(`PRAGMA foreign_keys = ON;`);
 
   await db.execAsync(`
     CREATE TABLE IF NOT EXISTS commitments (

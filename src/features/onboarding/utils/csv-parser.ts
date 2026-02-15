@@ -52,19 +52,29 @@ export function normalizeTransactions(
       description: (row[mapping.description] ?? '').trim(),
       originalRow: row,
     }))
-    .filter((t) => t.amount > 0 && t.description.length > 0);
+    .filter((t) => t.amount > 0 && t.description.length > 0 && t.date.length > 0);
 }
 
 function normalizeDate(dateStr: string): string {
+  const trimmed = dateStr.trim();
   // Handle DD/MM/YYYY (Israeli format)
-  const ddmmyyyy = dateStr.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
+  const ddmmyyyy = trimmed.match(/^(\d{1,2})[/\-.](\d{1,2})[/\-.](\d{4})$/);
   if (ddmmyyyy) {
     const [, day, month, year] = ddmmyyyy;
     return `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`;
   }
   // Handle YYYY-MM-DD
-  const iso = dateStr.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
-  if (iso) return dateStr.substring(0, 10);
-  // Fallback
-  return dateStr;
+  const iso = trimmed.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (iso) return trimmed.substring(0, 10);
+  // Handle "MMM DD, YYYY" or "DD MMM YYYY"
+  const parsed = Date.parse(trimmed);
+  if (!isNaN(parsed)) {
+    const d = new Date(parsed);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+  // Unrecognized format — return empty string to be filtered out
+  return '';
 }

@@ -7,12 +7,15 @@ import { UnrecognizedItemModal } from '@/src/features/onboarding/components/Unre
 import { useOnboardingStore } from '@/src/stores/onboarding-store';
 
 export default function CSVUploadScreen() {
-  const { status, error, pickAndParse } = useCSVImport();
+  const { status, error, headers, needsManualMapping, pickAndParse } = useCSVImport();
   const { csvTransactions, unrecognizedItems } = useOnboardingStore();
   const classifyUnrecognized = useOnboardingStore((s) => s.classifyUnrecognized);
 
   const [modalIndex, setModalIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
+  const [mappingAmount, setMappingAmount] = useState('');
+  const [mappingDate, setMappingDate] = useState('');
+  const [mappingDesc, setMappingDesc] = useState('');
 
   const handleImport = async () => {
     await pickAndParse();
@@ -92,6 +95,40 @@ export default function CSVUploadScreen() {
         </View>
       )}
 
+      {needsManualMapping && headers.length > 0 && (
+        <View style={styles.results}>
+          <Text style={styles.resultTitle}>Could not auto-detect columns</Text>
+          <Text style={styles.mappingHint}>Select which column contains each field:</Text>
+          {[
+            { label: 'Amount', value: mappingAmount, setter: setMappingAmount },
+            { label: 'Date', value: mappingDate, setter: setMappingDate },
+            { label: 'Description', value: mappingDesc, setter: setMappingDesc },
+          ].map(({ label, value, setter }) => (
+            <View key={label} style={styles.mappingRow}>
+              <Text style={styles.mappingLabel}>{label}:</Text>
+              <View style={styles.mappingChips}>
+                {headers.map((h) => (
+                  <TouchableOpacity
+                    key={h}
+                    style={[styles.mappingChip, value === h && styles.mappingChipActive]}
+                    onPress={() => setter(h)}
+                  >
+                    <Text style={[styles.mappingChipText, value === h && styles.mappingChipTextActive]}>{h}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ))}
+          <TouchableOpacity
+            style={[styles.continueBtn, (!mappingAmount || !mappingDate || !mappingDesc) && styles.importBtnDisabled]}
+            disabled={!mappingAmount || !mappingDate || !mappingDesc}
+            onPress={() => pickAndParse({ amount: mappingAmount, date: mappingDate, description: mappingDesc })}
+          >
+            <Text style={styles.continueText}>Apply Mapping</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+
       <UnrecognizedItemModal
         visible={showModal}
         item={unrecognizedItems[modalIndex] ?? null}
@@ -116,4 +153,12 @@ const styles = StyleSheet.create({
   unrecognizedText: { color: '#f59e0b', marginTop: 8 },
   continueBtn: { backgroundColor: '#16a34a', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16 },
   continueText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  mappingHint: { fontSize: 14, color: '#64748b', marginBottom: 12 },
+  mappingRow: { marginBottom: 12 },
+  mappingLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  mappingChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  mappingChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
+  mappingChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  mappingChipText: { fontSize: 12, color: '#64748b' },
+  mappingChipTextActive: { color: '#fff', fontWeight: '600' },
 });

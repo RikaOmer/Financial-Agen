@@ -16,12 +16,15 @@ import {
   deleteCommitment,
 } from '@/src/core/db/queries/commitments';
 import { useBudgetStore } from '@/src/stores/budget-store';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Commitment } from '@/src/types/database';
 import { formatNIS } from '@/src/utils/currency';
-import { LEISURE_CATEGORIES, CATEGORY_KEYS } from '@/src/core/constants/categories';
+import { LEISURE_CATEGORIES } from '@/src/core/constants/categories';
+import { CategorySelector } from '@/src/components/CategorySelector';
 
 export default function CommitmentsScreen() {
   const db = useSQLiteContext();
+  const insets = useSafeAreaInsets();
   const refreshBudget = useBudgetStore((s) => s.refreshBudget);
   const [commitments, setCommitments] = useState<Commitment[]>([]);
   const [showAdd, setShowAdd] = useState(false);
@@ -81,9 +84,13 @@ export default function CommitmentsScreen() {
         text: 'Delete',
         style: 'destructive',
         onPress: async () => {
-          await deleteCommitment(db, id);
-          await load();
-          await refreshBudget(db);
+          try {
+            await deleteCommitment(db, id);
+            await Promise.all([load(), refreshBudget(db)]);
+          } catch {
+            Alert.alert('Error', 'Failed to delete commitment. Please try again.');
+            await load();
+          }
         },
       },
     ]);
@@ -133,7 +140,7 @@ export default function CommitmentsScreen() {
 
       <Modal visible={showAdd} transparent animationType="slide">
         <View style={styles.modalOverlay}>
-          <View style={styles.modal}>
+          <View style={[styles.modal, { paddingBottom: Math.max(24, insets.bottom) }]}>
             <Text style={styles.modalTitle}>Add Commitment</Text>
 
             <TextInput style={styles.input} value={newName} onChangeText={setNewName} placeholder="Name (e.g. Netflix)" />
@@ -164,19 +171,7 @@ export default function CommitmentsScreen() {
               />
             )}
 
-            <View style={styles.categoryGrid}>
-              {CATEGORY_KEYS.filter((k) => k !== 'other').map((key) => (
-                <TouchableOpacity
-                  key={key}
-                  style={[styles.catChip, newCategory === key && styles.catChipActive]}
-                  onPress={() => setNewCategory(key)}
-                >
-                  <Text style={[styles.catText, newCategory === key && styles.catTextActive]}>
-                    {LEISURE_CATEGORIES[key].label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
-            </View>
+            <CategorySelector selected={newCategory} onSelect={setNewCategory} exclude={['other', 'subscriptions']} />
 
             <View style={styles.modalActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setShowAdd(false)}>
@@ -204,7 +199,7 @@ const styles = StyleSheet.create({
   itemAmount: { fontSize: 16, fontWeight: '700', color: '#2563eb', marginRight: 12 },
   deleteBtn: { padding: 6 },
   deleteText: { color: '#dc2626', fontWeight: '700', fontSize: 16 },
-  emptyText: { color: '#94a3b8', textAlign: 'center', marginTop: 40 },
+  emptyText: { color: '#64748b', textAlign: 'center', marginTop: 40 },
   footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 8 },
   totalLabel: { fontSize: 16, fontWeight: '600', color: '#475569' },
   totalAmount: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
@@ -219,11 +214,6 @@ const styles = StyleSheet.create({
   typeChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
   typeText: { color: '#64748b', fontWeight: '500' },
   typeTextActive: { color: '#fff' },
-  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 16 },
-  catChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-  catChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  catText: { fontSize: 12, color: '#64748b' },
-  catTextActive: { color: '#fff' },
   modalActions: { flexDirection: 'row', gap: 12 },
   cancelBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', backgroundColor: '#e2e8f0' },
   cancelText: { color: '#475569', fontWeight: '600' },

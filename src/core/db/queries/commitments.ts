@@ -1,10 +1,6 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Commitment } from '@/src/types/database';
 
-export async function getAllCommitments(db: SQLiteDatabase): Promise<Commitment[]> {
-  return db.getAllAsync<Commitment>('SELECT * FROM commitments ORDER BY type, name');
-}
-
 export async function getActiveCommitments(db: SQLiteDatabase): Promise<Commitment[]> {
   return db.getAllAsync<Commitment>(
     `SELECT * FROM commitments

@@ -15,6 +15,8 @@ import { useBudgetStore } from '@/src/stores/budget-store';
 import { getSetting, setSetting, getBigEvents } from '@/src/core/db/queries/settings';
 import { createBigEvent } from '@/src/features/budget/utils/big-event';
 import { formatNIS } from '@/src/utils/currency';
+import { isValidApiKey } from '@/src/utils/validation';
+import { useOnboardingStore } from '@/src/stores/onboarding-store';
 import type { BigEvent } from '@/src/types/budget';
 
 export default function SettingsScreen() {
@@ -44,11 +46,14 @@ export default function SettingsScreen() {
     if (target) setTargetInput(target);
     if (goalName) setSavingsNameInput(goalName);
     if (goalAmount) setSavingsAmountInput(goalAmount);
-    setBigEvents(JSON.parse(eventsJson));
+    try { setBigEvents(JSON.parse(eventsJson)); } catch { setBigEvents([]); }
   };
 
   const handleSaveApiKey = async () => {
-    if (!apiKeyInput.trim()) return;
+    if (!isValidApiKey(apiKeyInput.trim())) {
+      Alert.alert('Invalid Key', 'API key must start with "sk-ant-" and be at least 20 characters.');
+      return;
+    }
     await setApiKey(apiKeyInput.trim());
     Alert.alert('Saved', 'API key stored securely.');
     setApiKeyInput('');
@@ -79,20 +84,58 @@ export default function SettingsScreen() {
     }
     const event = createBigEvent(bigEventName.trim(), amount, new Date().toISOString());
     const updated = [...bigEvents, event];
+    const totalAmortization = updated.reduce((sum, e) => sum + (e.amortizedDaily || 0), 0);
+    if (snapshot.dailyBudget > 0 && totalAmortization > snapshot.dailyBudget * 0.9) {
+      Alert.alert(
+        'Warning',
+        'Adding this event would consume most of your daily budget. Are you sure?',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Add Anyway',
+            onPress: async () => {
+              await saveBigEvent(updated);
+            },
+          },
+        ]
+      );
+      return;
+    }
+    await saveBigEvent(updated);
+  };
+
+  const saveBigEvent = async (updated: BigEvent[]) => {
     await setSetting(db, 'big_events', JSON.stringify(updated));
     setBigEvents(updated);
     setBigEventName('');
     setBigEventAmount('');
     await refreshBudget(db);
-    Alert.alert('Added', `${formatNIS(amount)} will be amortized over remaining days.`);
+    Alert.alert('Added', `Event will be amortized over remaining days.`);
+  };
+
+  const handleDeleteBigEvent = (id: string) => {
+    Alert.alert('Delete Event', 'Remove this big event?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          const updated = bigEvents.filter((e) => e.id !== id);
+          await setSetting(db, 'big_events', JSON.stringify(updated));
+          setBigEvents(updated);
+          await refreshBudget(db);
+        },
+      },
+    ]);
   };
 
   const handleReimport = () => {
+    useOnboardingStore.getState().reset();
     router.push('/(onboarding)/csv-upload');
   };
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+    <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.sectionTitle}>API Key</Text>
       <Text style={styles.hint}>
         {apiKey ? 'Key stored securely. Enter new key to replace.' : 'Enter your Anthropic API key for AI Critic.'}
@@ -167,8 +210,16 @@ export default function SettingsScreen() {
       </View>
       {bigEvents.map((e) => (
         <View key={e.id} style={styles.eventRow}>
-          <Text style={styles.eventName}>{e.name}</Text>
-          <Text style={styles.eventAmount}>{formatNIS(e.amount)} ({formatNIS(e.amortizedDaily)}/day)</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.eventName}>{e.name}</Text>
+            <Text style={styles.eventAmount}>{formatNIS(e.amount)} ({formatNIS(e.amortizedDaily)}/day)</Text>
+          </View>
+          <TouchableOpacity
+            onPress={() => handleDeleteBigEvent(e.id)}
+            style={styles.eventDeleteBtn}
+          >
+            <Text style={styles.eventDeleteText}>X</Text>
+          </TouchableOpacity>
         </View>
       ))}
 
@@ -189,14 +240,16 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#f8fafc' },
   content: { padding: 24, paddingBottom: 40 },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a', marginTop: 20, marginBottom: 8 },
-  hint: { fontSize: 13, color: '#94a3b8', marginBottom: 8 },
+  hint: { fontSize: 13, color: '#64748b', marginBottom: 8 },
   input: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#d1d5db', borderRadius: 10, paddingHorizontal: 14, paddingVertical: 12, fontSize: 15 },
   row: { flexDirection: 'row', gap: 8, alignItems: 'center' },
   smallBtn: { backgroundColor: '#2563eb', paddingHorizontal: 16, paddingVertical: 12, borderRadius: 10 },
   smallBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
-  eventRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
+  eventRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#f1f5f9' },
   eventName: { fontSize: 14, color: '#374151' },
   eventAmount: { fontSize: 14, color: '#2563eb', fontWeight: '500' },
+  eventDeleteBtn: { padding: 6, marginLeft: 8 },
+  eventDeleteText: { color: '#dc2626', fontWeight: '700', fontSize: 14 },
   reimportBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1' },
   reimportText: { color: '#64748b', fontSize: 15 },
   infoCard: { backgroundColor: '#eff6ff', padding: 16, borderRadius: 12, marginTop: 24 },

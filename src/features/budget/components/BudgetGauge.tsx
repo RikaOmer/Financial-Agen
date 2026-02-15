@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { formatNIS } from '@/src/utils/currency';
+import { ProgressBar } from '@/src/components/ProgressBar';
 
 interface Props {
   dailyBudget: number;
@@ -31,14 +32,7 @@ export function BudgetGauge({ dailyBudget, spentToday = 0, monthlyTarget, spentT
         <Text style={styles.label}>left today</Text>
       </View>
       <View style={styles.progressContainer}>
-        <View style={styles.progressBg}>
-          <View
-            style={[
-              styles.progressFill,
-              { width: `${Math.max(0, Math.min(100, percentage))}%`, backgroundColor: color },
-            ]}
-          />
-        </View>
+        <ProgressBar progress={monthlyRatio} color={color} />
         <Text style={styles.progressText}>{percentage}% of monthly budget remaining</Text>
       </View>
     </View>
@@ -59,7 +53,5 @@ const styles = StyleSheet.create({
   amount: { fontSize: 28, fontWeight: '800' },
   label: { fontSize: 14, color: '#64748b', marginTop: 4 },
   progressContainer: { width: '100%', marginTop: 8 },
-  progressBg: { height: 8, backgroundColor: '#e2e8f0', borderRadius: 4, overflow: 'hidden' },
-  progressFill: { height: '100%', borderRadius: 4 },
   progressText: { fontSize: 13, color: '#64748b', textAlign: 'center', marginTop: 6 },
 });

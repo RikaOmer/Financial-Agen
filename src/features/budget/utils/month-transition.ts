@@ -21,10 +21,9 @@ export async function runMonthTransition(db: SQLiteDatabase): Promise<boolean> {
     const year = parseInt(yearStr, 10);
     const month = parseInt(monthStr, 10);
     await processMonthEnd(db, year, month);
+    await decrementInstallments(db);
+    await deleteCompletedInstallments(db);
   }
-
-  await decrementInstallments(db);
-  await deleteCompletedInstallments(db);
   await setSetting(db, 'last_active_month', currentMonth);
   // Clear big events for the new month
   await setSetting(db, 'big_events', '[]');

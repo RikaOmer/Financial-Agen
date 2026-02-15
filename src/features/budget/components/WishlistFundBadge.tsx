@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
 import { formatNIS } from '@/src/utils/currency';
+import { ProgressBar } from '@/src/components/ProgressBar';
 
 interface Props {
   amount: number;
@@ -17,9 +18,7 @@ export function WishlistFundBadge({ amount, goalName, goalAmount }: Props) {
       <Text style={styles.amount}>{formatNIS(amount)}</Text>
       {goalName && goalAmount ? (
         <View style={styles.goalRow}>
-          <View style={styles.goalBar}>
-            <View style={[styles.goalFill, { width: `${progress * 100}%` }]} />
-          </View>
+          <ProgressBar progress={progress} color="#f59e0b" backgroundColor="#fde68a" height={6} />
           <Text style={styles.goalText}>
             {Math.round(progress * 100)}% toward {goalName}
           </Text>
@@ -41,7 +40,5 @@ const styles = StyleSheet.create({
   label: { fontSize: 13, color: '#92400e', fontWeight: '600' },
   amount: { fontSize: 22, fontWeight: '700', color: '#b45309', marginTop: 4 },
   goalRow: { marginTop: 8 },
-  goalBar: { height: 6, backgroundColor: '#fde68a', borderRadius: 3, overflow: 'hidden' },
-  goalFill: { height: '100%', backgroundColor: '#f59e0b', borderRadius: 3 },
   goalText: { fontSize: 12, color: '#92400e', marginTop: 4 },
 });

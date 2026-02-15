@@ -1,21 +1,19 @@
 import type { SQLiteDatabase } from 'expo-sqlite';
 import type { Transaction } from '@/src/types/database';
+import { getMonthRange } from '@/src/utils/date';
 
 export async function getTransactionsForMonth(
   db: SQLiteDatabase,
   year: number,
   month: number
 ): Promise<Transaction[]> {
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endMonth = month === 12 ? 1 : month + 1;
-  const endYear = month === 12 ? year + 1 : year;
-  const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+  const { start, end } = getMonthRange(year, month);
 
   return db.getAllAsync<Transaction>(
     `SELECT * FROM transactions
      WHERE timestamp >= ? AND timestamp < ?
      ORDER BY timestamp DESC`,
-    [startDate, endDate]
+    [start, end]
   );
 }
 
@@ -58,15 +56,12 @@ export async function getTotalSpentThisMonth(
   year: number,
   month: number
 ): Promise<number> {
-  const startDate = `${year}-${String(month).padStart(2, '0')}-01`;
-  const endMonth = month === 12 ? 1 : month + 1;
-  const endYear = month === 12 ? year + 1 : year;
-  const endDate = `${endYear}-${String(endMonth).padStart(2, '0')}-01`;
+  const { start, end } = getMonthRange(year, month);
 
   const result = await db.getFirstAsync<{ total: number }>(
     `SELECT COALESCE(SUM(amount), 0) as total FROM transactions
      WHERE timestamp >= ? AND timestamp < ?`,
-    [startDate, endDate]
+    [start, end]
   );
   return result?.total ?? 0;
 }

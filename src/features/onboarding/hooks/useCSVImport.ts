@@ -16,45 +16,51 @@ export function useCSVImport() {
   const [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [needsManualMapping, setNeedsManualMapping] = useState(false);
+  const [storedRows, setStoredRows] = useState<Record<string, string>[]>([]);
   const setCsvData = useOnboardingStore((s) => s.setCsvData);
 
   const pickAndParse = useCallback(async (manualMapping?: ColumnMapping) => {
     try {
       setError(null);
 
-      if (!manualMapping) {
-        setStatus('picking');
-        const result = await DocumentPicker.getDocumentAsync({
-          type: ['text/csv', 'text/comma-separated-values', 'application/*'],
-          copyToCacheDirectory: true,
-        });
-
-        if (result.canceled) {
-          setStatus('idle');
-          return;
-        }
-
-        const fileUri = result.assets[0].uri;
-        setStatus('parsing');
-        const content = await FileSystem.readAsStringAsync(fileUri);
-
-        const { rows, headers: csvHeaders } = await parseCSV(content);
-        setHeaders(csvHeaders);
-
-        const mapping = autoDetectMapping(csvHeaders);
-        if (!mapping) {
-          setNeedsManualMapping(true);
-          setStatus('idle');
-          return;
-        }
-
-        await analyze(rows, mapping);
+      if (manualMapping) {
+        await analyze(storedRows, manualMapping);
+        setNeedsManualMapping(false);
+        return;
       }
+
+      setStatus('picking');
+      const result = await DocumentPicker.getDocumentAsync({
+        type: ['text/csv', 'text/comma-separated-values', 'application/*'],
+        copyToCacheDirectory: true,
+      });
+
+      if (result.canceled) {
+        setStatus('idle');
+        return;
+      }
+
+      const fileUri = result.assets[0].uri;
+      setStatus('parsing');
+      const content = await FileSystem.readAsStringAsync(fileUri);
+
+      const { rows, headers: csvHeaders } = await parseCSV(content);
+      setHeaders(csvHeaders);
+      setStoredRows(rows);
+
+      const mapping = autoDetectMapping(csvHeaders);
+      if (!mapping) {
+        setNeedsManualMapping(true);
+        setStatus('idle');
+        return;
+      }
+
+      await analyze(rows, mapping);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to import CSV');
       setStatus('error');
     }
-  }, []);
+  }, [storedRows]);
 
   const applyManualMapping = useCallback(
     async (mapping: ColumnMapping, content: string) => {
