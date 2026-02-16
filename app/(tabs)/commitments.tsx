@@ -21,6 +21,7 @@ import type { Commitment } from '@/src/types/database';
 import { formatNIS } from '@/src/utils/currency';
 import { LEISURE_CATEGORIES } from '@/src/core/constants/categories';
 import { CategorySelector } from '@/src/components/CategorySelector';
+import { projectCommitments } from '@/src/features/budget/utils/commitment-projection';
 
 export default function CommitmentsScreen() {
   const db = useSQLiteContext();
@@ -33,6 +34,7 @@ export default function CommitmentsScreen() {
   const [newType, setNewType] = useState<'subscription' | 'installment'>('subscription');
   const [newInstallments, setNewInstallments] = useState('');
   const [newCategory, setNewCategory] = useState('subscriptions');
+  const [showProjection, setShowProjection] = useState(false);
 
   const load = useCallback(async () => {
     const data = await getActiveCommitments(db);
@@ -49,6 +51,13 @@ export default function CommitmentsScreen() {
     { title: 'Subscriptions', data: subscriptions },
     { title: 'Installments', data: installments },
   ].filter((s) => s.data.length > 0);
+
+  const projections = projectCommitments(commitments);
+
+  const formatMonthLabel = (monthKey: string): string => {
+    const [year, month] = monthKey.split('-').map(Number);
+    return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+  };
 
   const handleAdd = async () => {
     const amount = parseFloat(newAmount);
@@ -126,9 +135,31 @@ export default function CommitmentsScreen() {
           <Text style={styles.emptyText}>No commitments yet. Add subscriptions or installments.</Text>
         }
         ListFooterComponent={
-          <View style={styles.footer}>
-            <Text style={styles.totalLabel}>Total Monthly</Text>
-            <Text style={styles.totalAmount}>{formatNIS(total)}</Text>
+          <View style={styles.footerContainer}>
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total Monthly</Text>
+              <Text style={styles.totalAmount}>{formatNIS(total)}</Text>
+            </View>
+            <TouchableOpacity
+              style={styles.projectionToggle}
+              onPress={() => setShowProjection(!showProjection)}
+            >
+              <Text style={styles.projectionToggleText}>
+                {showProjection ? 'Hide Projection' : 'Show 6-Month Projection'}
+              </Text>
+            </TouchableOpacity>
+            {showProjection && projections.map((p) => (
+              <View key={p.month} style={styles.projectionCard}>
+                <Text style={styles.projectionMonth}>{formatMonthLabel(p.month)}</Text>
+                <Text style={styles.projectionTotal}>{formatNIS(p.totalCommitments)}</Text>
+                {p.breakdown.map((item, idx) => (
+                  <View key={idx} style={styles.projectionItem}>
+                    <Text style={styles.projectionItemName}>{item.name}</Text>
+                    <Text style={styles.projectionItemAmount}>{formatNIS(item.amount)}</Text>
+                  </View>
+                ))}
+              </View>
+            ))}
           </View>
         }
         contentContainerStyle={styles.list}
@@ -200,9 +231,18 @@ const styles = StyleSheet.create({
   deleteBtn: { padding: 6 },
   deleteText: { color: '#dc2626', fontWeight: '700', fontSize: 16 },
   emptyText: { color: '#64748b', textAlign: 'center', marginTop: 40 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 8 },
+  footerContainer: { paddingTop: 16, borderTopWidth: 1, borderTopColor: '#e2e8f0', marginTop: 8 },
+  totalRow: { flexDirection: 'row', justifyContent: 'space-between' },
   totalLabel: { fontSize: 16, fontWeight: '600', color: '#475569' },
   totalAmount: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
+  projectionToggle: { marginTop: 12, paddingVertical: 10, borderRadius: 8, backgroundColor: '#eff6ff', alignItems: 'center' },
+  projectionToggleText: { color: '#2563eb', fontWeight: '600', fontSize: 14 },
+  projectionCard: { backgroundColor: '#fff', borderRadius: 10, padding: 14, marginTop: 10, borderWidth: 1, borderColor: '#e2e8f0' },
+  projectionMonth: { fontSize: 15, fontWeight: '700', color: '#1a1a1a', marginBottom: 4 },
+  projectionTotal: { fontSize: 14, fontWeight: '600', color: '#2563eb', marginBottom: 8 },
+  projectionItem: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 3 },
+  projectionItemName: { fontSize: 13, color: '#64748b' },
+  projectionItemAmount: { fontSize: 13, color: '#475569', fontWeight: '500' },
   addBtn: { position: 'absolute', bottom: 16, left: 16, right: 16, backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
   addBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },

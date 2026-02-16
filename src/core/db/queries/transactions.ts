@@ -87,3 +87,25 @@ export async function getTodayTransactions(
      ORDER BY timestamp DESC`
   );
 }
+
+export async function deleteTransaction(
+  db: SQLiteDatabase,
+  id: number
+): Promise<void> {
+  await db.runAsync('DELETE FROM transactions WHERE id = ?', [id]);
+}
+
+export async function updateTransaction(
+  db: SQLiteDatabase,
+  id: number,
+  fields: Partial<Omit<Transaction, 'id'>>
+): Promise<void> {
+  const entries = Object.entries(fields).filter(([_, v]) => v !== undefined);
+  if (entries.length === 0) return;
+  const setClauses = entries.map(([key]) => `${key} = ?`).join(', ');
+  const values = entries.map(([_, v]) => v);
+  await db.runAsync(
+    `UPDATE transactions SET ${setClauses} WHERE id = ?`,
+    [...values, id]
+  );
+}

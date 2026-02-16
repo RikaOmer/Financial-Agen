@@ -7,16 +7,23 @@ import { detectInstallments } from '../utils/installment-detector';
 import { detectSubscriptions } from '../utils/subscription-detector';
 import { calculateBaseline } from '../utils/baseline-calculator';
 import { useOnboardingStore } from '@/src/stores/onboarding-store';
-import type { ColumnMapping } from '@/src/types/csv';
+import type { ColumnMapping, NormalizedTransaction } from '@/src/types/csv';
+import type { SQLiteDatabase } from 'expo-sqlite';
+import { getTransactionsForMonth } from '@/src/core/db/queries/transactions';
+import { findDuplicates } from '@/src/features/budget/utils/deduplication';
+import type { DuplicateMatch } from '@/src/features/budget/utils/deduplication';
+import type { Transaction } from '@/src/types/database';
 
-type ImportStatus = 'idle' | 'picking' | 'parsing' | 'analyzing' | 'done' | 'error';
+type ImportStatus = 'idle' | 'picking' | 'parsing' | 'analyzing' | 'dedup_review' | 'done' | 'error';
 
-export function useCSVImport() {
+export function useCSVImport(db?: SQLiteDatabase) {
   const [status, setStatus] = useState<ImportStatus>('idle');
   const [error, setError] = useState<string | null>(null);
   const [headers, setHeaders] = useState<string[]>([]);
   const [needsManualMapping, setNeedsManualMapping] = useState(false);
   const [storedRows, setStoredRows] = useState<Record<string, string>[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateMatch[]>([]);
+  const [pendingAnalysis, setPendingAnalysis] = useState<{ leisure: NormalizedTransaction[]; unrecognized: NormalizedTransaction[]; allCommitments: any[]; baselineAvg: number; proposedTarget: number } | null>(null);
   const setCsvData = useOnboardingStore((s) => s.setCsvData);
 
   const pickAndParse = useCallback(async (manualMapping?: ColumnMapping) => {
@@ -85,6 +92,26 @@ export function useCSVImport() {
     const allCommitments = [...installments, ...subscriptions];
     const { baselineAvg, proposedTarget } = calculateBaseline(leisure);
 
+    // Check for duplicates if db is available
+    if (db) {
+      const now = new Date();
+      const existingTxns: Transaction[] = [];
+      for (let i = 0; i < 3; i++) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        const txns = await getTransactionsForMonth(db, d.getFullYear(), d.getMonth() + 1);
+        existingTxns.push(...txns);
+      }
+      if (existingTxns.length > 0) {
+        const matches = findDuplicates(existingTxns, leisure);
+        if (matches.length > 0) {
+          setDuplicates(matches);
+          setPendingAnalysis({ leisure, unrecognized, allCommitments, baselineAvg, proposedTarget });
+          setStatus('dedup_review');
+          return;
+        }
+      }
+    }
+
     setCsvData({
       transactions: leisure,
       commitments: allCommitments,
@@ -96,6 +123,34 @@ export function useCSVImport() {
     setStatus('done');
   }
 
+  const finalizeDedup = useCallback((excludedIndices: Set<number>) => {
+    if (!pendingAnalysis) return;
+    const { leisure, unrecognized, allCommitments, baselineAvg, proposedTarget } = pendingAnalysis;
+
+    // Get the CSV entries from duplicate matches that should be excluded
+    const excludedDescriptions = new Set(
+      duplicates
+        .filter((_, i) => excludedIndices.has(i))
+        .map(d => `${d.csvEntry.description}|${d.csvEntry.amount}|${d.csvEntry.date}`)
+    );
+
+    const filteredLeisure = leisure.filter(tx =>
+      !excludedDescriptions.has(`${tx.description}|${tx.amount}|${tx.date}`)
+    );
+
+    setCsvData({
+      transactions: filteredLeisure,
+      commitments: allCommitments,
+      unrecognized,
+      baselineAvg,
+      proposedTarget,
+    });
+
+    setDuplicates([]);
+    setPendingAnalysis(null);
+    setStatus('done');
+  }, [pendingAnalysis, duplicates, setCsvData]);
+
   return {
     status,
     error,
@@ -103,5 +158,7 @@ export function useCSVImport() {
     needsManualMapping,
     pickAndParse,
     applyManualMapping,
+    duplicates,
+    finalizeDedup,
   };
 }

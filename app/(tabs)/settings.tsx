@@ -134,6 +134,25 @@ export default function SettingsScreen() {
     router.push('/(onboarding)/csv-upload');
   };
 
+  const handleResetOnboarding = () => {
+    Alert.alert(
+      'Reset Onboarding',
+      'This will restart the setup wizard. Your data will be preserved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Reset',
+          style: 'destructive',
+          onPress: async () => {
+            await setSetting(db, 'onboarding_completed', 'false');
+            useOnboardingStore.getState().reset();
+            router.replace('/(onboarding)/welcome');
+          },
+        },
+      ]
+    );
+  };
+
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
       <Text style={styles.sectionTitle}>API Key</Text>
@@ -227,6 +246,10 @@ export default function SettingsScreen() {
         <Text style={styles.reimportText}>Re-import CSV</Text>
       </TouchableOpacity>
 
+      <TouchableOpacity style={styles.resetBtn} onPress={handleResetOnboarding}>
+        <Text style={styles.resetText}>Reset Onboarding</Text>
+      </TouchableOpacity>
+
       <View style={styles.infoCard}>
         <Text style={styles.infoTitle}>Current Budget</Text>
         <Text style={styles.infoLine}>Daily: {formatNIS(snapshot.dailyBudget)}</Text>
@@ -252,6 +275,8 @@ const styles = StyleSheet.create({
   eventDeleteText: { color: '#dc2626', fontWeight: '700', fontSize: 14 },
   reimportBtn: { marginTop: 24, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1' },
   reimportText: { color: '#64748b', fontSize: 15 },
+  resetBtn: { marginTop: 12, paddingVertical: 14, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#dc2626' },
+  resetText: { color: '#dc2626', fontSize: 15 },
   infoCard: { backgroundColor: '#eff6ff', padding: 16, borderRadius: 12, marginTop: 24 },
   infoTitle: { fontSize: 14, fontWeight: '600', color: '#2563eb', marginBottom: 8 },
   infoLine: { fontSize: 14, color: '#1e40af', paddingVertical: 2 },
