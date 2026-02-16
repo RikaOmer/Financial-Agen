@@ -1,7 +1,7 @@
 import type { Transaction } from '@/src/types/database';
 import type { NormalizedTransaction } from '@/src/types/csv';
 
-interface DuplicateMatch {
+export interface DuplicateMatch {
   transaction: Transaction;
   csvEntry: NormalizedTransaction;
   confidence: number;

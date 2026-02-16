@@ -1,13 +1,16 @@
 import React, { useState } from 'react';
 import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import { useSQLiteContext } from 'expo-sqlite';
 import { useCSVImport } from '@/src/features/onboarding/hooks/useCSVImport';
 import { CSVPreviewTable } from '@/src/features/onboarding/components/CSVPreviewTable';
 import { UnrecognizedItemModal } from '@/src/features/onboarding/components/UnrecognizedItemModal';
+import { DuplicateReviewModal } from '@/src/features/onboarding/components/DuplicateReviewModal';
 import { useOnboardingStore } from '@/src/stores/onboarding-store';
 
 export default function CSVUploadScreen() {
-  const { status, error, headers, needsManualMapping, pickAndParse } = useCSVImport();
+  const db = useSQLiteContext();
+  const { status, error, headers, needsManualMapping, pickAndParse, duplicates, finalizeDedup } = useCSVImport(db);
   const { csvTransactions, unrecognizedItems } = useOnboardingStore();
   const classifyUnrecognized = useOnboardingStore((s) => s.classifyUnrecognized);
 
@@ -135,6 +138,14 @@ export default function CSVUploadScreen() {
         onClassify={handleClassify}
         onSkip={handleSkip}
       />
+
+      {status === 'dedup_review' && (
+        <DuplicateReviewModal
+          visible={status === 'dedup_review'}
+          duplicates={duplicates}
+          onConfirm={(excludedIndices) => finalizeDedup(excludedIndices)}
+        />
+      )}
     </View>
   );
 }
