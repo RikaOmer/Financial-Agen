@@ -14,7 +14,12 @@ export const LEISURE_CATEGORIES: Record<string, { label: string; keywords: strin
       'cinema', 'movie', 'theater', 'concert', 'show', 'netflix', 'spotify',
       'disney', 'hbo', 'apple tv', 'youtube', 'gaming', 'steam', 'playstation',
       'xbox', 'nintendo', 'yes', 'hot',
+      'gym', 'fitness', 'yoga', 'pilates', 'spa', 'massage', 'sport',
+      'pool', 'swimming', 'book', 'music', 'art', 'craft', 'photography',
+      'course', 'class',
       'קולנוע', 'סרט', 'תיאטרון', 'הופעה', 'מופע',
+      'חדר כושר', 'יוגה', 'ספא', 'עיסוי', 'בריכה', 'שחייה',
+      'ספר', 'מוזיקה', 'אומנות', 'קורס', 'שיעור',
     ],
   },
   shopping: {
@@ -25,17 +30,11 @@ export const LEISURE_CATEGORIES: Record<string, { label: string; keywords: strin
       'קניון', 'חנות', 'ביגוד', 'נעליים', 'אופנה',
     ],
   },
-  fitness: {
-    label: 'Fitness & Wellness',
+  housekeeping: {
+    label: 'Housekeeping',
     keywords: [
-      'gym', 'fitness', 'yoga', 'pilates', 'spa', 'massage', 'sport',
-      'pool', 'swimming',
-      'חדר כושר', 'יוגה', 'ספא', 'עיסוי', 'בריכה', 'שחייה',
-    ],
-  },
-  transport_leisure: {
-    label: 'Leisure Transport',
-    keywords: [
+      'supermarket', 'grocery', 'market', 'cleaning', 'laundry',
+      'סופר', 'מרקט', 'שוק', 'מכולת', 'ניקיון', 'כביסה',
       'uber', 'gett', 'bolt', 'taxi', 'yango',
       'מונית', 'הסעה',
     ],
@@ -45,13 +44,6 @@ export const LEISURE_CATEGORIES: Record<string, { label: string; keywords: strin
     keywords: [
       'subscription', 'monthly', 'membership', 'premium',
       'מנוי', 'חברות',
-    ],
-  },
-  hobbies: {
-    label: 'Hobbies',
-    keywords: [
-      'book', 'music', 'art', 'craft', 'photography', 'course', 'class',
-      'ספר', 'מוזיקה', 'אומנות', 'קורס', 'שיעור',
     ],
   },
   other: {

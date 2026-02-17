@@ -2,9 +2,12 @@ import Papa from 'papaparse';
 import type { RawCSVRow, NormalizedTransaction, ColumnMapping } from '@/src/types/csv';
 import { parseAmountString } from '@/src/utils/currency';
 
-const AMOUNT_PATTERNS = ['amount', 'sum', 'total', 'charge', 'סכום', 'חיוב', 'סה"כ'];
+// Prefer "סכום חיוב" (actual charge) over "סכום עסקה" (total deal amount for installments)
+const AMOUNT_PATTERNS = ['amount', 'sum', 'total', 'charge', 'סכום חיוב', 'חיוב', 'סכום', 'סה"כ'];
 const DATE_PATTERNS = ['date', 'תאריך', 'תאריך עסקה', 'transaction date'];
-const DESC_PATTERNS = ['description', 'merchant', 'name', 'details', 'תיאור', 'שם בית עסק', 'פירוט'];
+const DESC_PATTERNS = ['description', 'merchant', 'name', 'תיאור', 'שם בית העסק', 'שם בית עסק', 'שם העסק', 'פירוט', 'details'];
+// Secondary details column — appended to description when present (holds installment info like "תשלום 3 מתוך 12")
+const DETAILS_PATTERNS = ['פירוט', 'details', 'הערות'];
 
 function detectColumn(headers: string[], patterns: string[]): string | null {
   const lowerHeaders = headers.map((h) => h.toLowerCase().trim());
@@ -21,7 +24,15 @@ export function autoDetectMapping(headers: string[]): ColumnMapping | null {
   const description = detectColumn(headers, DESC_PATTERNS);
 
   if (!amount || !date || !description) return null;
-  return { amount, date, description };
+
+  // Look for a separate details column (e.g. פירוט) different from the one already used as description
+  let details: string | undefined;
+  const detailsCol = detectColumn(headers, DETAILS_PATTERNS);
+  if (detailsCol && detailsCol !== description) {
+    details = detailsCol;
+  }
+
+  return { amount, date, description, details };
 }
 
 export function parseCSV(content: string): Promise<{ rows: RawCSVRow[]; headers: string[] }> {
@@ -46,12 +57,17 @@ export function normalizeTransactions(
   mapping: ColumnMapping
 ): NormalizedTransaction[] {
   return rows
-    .map((row) => ({
-      amount: parseAmountString(row[mapping.amount] ?? '0'),
-      date: normalizeDate(row[mapping.date] ?? ''),
-      description: (row[mapping.description] ?? '').trim(),
-      originalRow: row,
-    }))
+    .map((row) => {
+      const desc = (row[mapping.description] ?? '').trim();
+      const details = mapping.details ? (row[mapping.details] ?? '').trim() : '';
+      const description = details && details !== desc ? `${desc} ${details}` : desc;
+      return {
+        amount: parseAmountString(row[mapping.amount] ?? '0'),
+        date: normalizeDate(row[mapping.date] ?? ''),
+        description,
+        originalRow: row,
+      };
+    })
     .filter((t) => t.amount > 0 && t.description.length > 0 && t.date.length > 0);
 }
 

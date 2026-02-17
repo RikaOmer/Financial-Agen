@@ -1,17 +1,25 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   SectionList,
-  TouchableOpacity,
+  Pressable,
   Alert,
+  Animated,
+  Easing,
+  Platform,
   StyleSheet,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { getTransactionsForMonth, deleteTransaction } from '@/src/core/db/queries/transactions';
 import { useBudgetStore } from '@/src/stores/budget-store';
 import { formatNIS } from '@/src/utils/currency';
 import { LEISURE_CATEGORIES } from '@/src/core/constants/categories';
+import { CATEGORY_ICONS } from '@/src/core/constants/category-icons';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { AnimatedNumber } from '@/src/components/AnimatedNumber';
+import { colors, typography, spacing, radius, shadows, durations } from '@/src/core/theme';
 import type { Transaction } from '@/src/types/database';
 
 interface Section {
@@ -49,6 +57,10 @@ export default function HistoryScreen() {
   const [sections, setSections] = useState<Section[]>([]);
   const [monthlyTotal, setMonthlyTotal] = useState(0);
 
+  const fadeAnim = useRef(new Animated.Value(1)).current;
+  const arrowLeftScale = useRef(new Animated.Value(1)).current;
+  const arrowRightScale = useRef(new Animated.Value(1)).current;
+
   const load = useCallback(async () => {
     const txns = await getTransactionsForMonth(db, year, month);
     const grouped = groupByDate(txns);
@@ -60,15 +72,53 @@ export default function HistoryScreen() {
 
   const isCurrentMonth = year === now.getFullYear() && month === now.getMonth() + 1;
 
+  const animateMonthSwitch = (cb: () => void) => {
+    Animated.timing(fadeAnim, {
+      toValue: 0,
+      duration: durations.fast,
+      useNativeDriver: true,
+      easing: Easing.out(Easing.cubic),
+    }).start(() => {
+      cb();
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: durations.normal,
+        useNativeDriver: true,
+        easing: Easing.in(Easing.cubic),
+      }).start();
+    });
+  };
+
+  const pressArrow = (anim: Animated.Value) => {
+    Animated.sequence([
+      Animated.timing(anim, {
+        toValue: 0.85,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+      Animated.timing(anim, {
+        toValue: 1,
+        duration: 80,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const goBack = () => {
-    if (month === 1) { setYear(year - 1); setMonth(12); }
-    else setMonth(month - 1);
+    pressArrow(arrowLeftScale);
+    animateMonthSwitch(() => {
+      if (month === 1) { setYear(year - 1); setMonth(12); }
+      else setMonth(month - 1);
+    });
   };
 
   const goForward = () => {
     if (isCurrentMonth) return;
-    if (month === 12) { setYear(year + 1); setMonth(1); }
-    else setMonth(month + 1);
+    pressArrow(arrowRightScale);
+    animateMonthSwitch(() => {
+      if (month === 12) { setYear(year + 1); setMonth(1); }
+      else setMonth(month + 1);
+    });
   };
 
   const monthLabel = new Date(year, month - 1).toLocaleDateString('en-US', {
@@ -92,73 +142,216 @@ export default function HistoryScreen() {
 
   return (
     <View style={styles.container}>
+      {/* Month Picker */}
       <View style={styles.monthPicker}>
-        <TouchableOpacity onPress={goBack} style={styles.arrow}>
-          <Text style={styles.arrowText}>{'<'}</Text>
-        </TouchableOpacity>
+        <Animated.View style={{ transform: [{ scale: arrowLeftScale }] }}>
+          <Pressable onPress={goBack} style={styles.arrowBtn} hitSlop={8}>
+            <MaterialIcons name="chevron-left" size={28} color={colors.primary} />
+          </Pressable>
+        </Animated.View>
+
         <Text style={styles.monthLabel}>{monthLabel}</Text>
-        <TouchableOpacity
-          onPress={goForward}
-          style={[styles.arrow, isCurrentMonth && styles.arrowDisabled]}
-          disabled={isCurrentMonth}
-        >
-          <Text style={[styles.arrowText, isCurrentMonth && styles.arrowTextDisabled]}>{'>'}</Text>
-        </TouchableOpacity>
+
+        <Animated.View style={{ transform: [{ scale: arrowRightScale }] }}>
+          <Pressable
+            onPress={goForward}
+            style={[styles.arrowBtn, isCurrentMonth && styles.arrowDisabled]}
+            disabled={isCurrentMonth}
+            hitSlop={8}
+          >
+            <MaterialIcons
+              name="chevron-right"
+              size={28}
+              color={isCurrentMonth ? colors.textDisabled : colors.primary}
+            />
+          </Pressable>
+        </Animated.View>
       </View>
 
-      <View style={styles.totalBadge}>
-        <Text style={styles.totalLabel}>Monthly Total</Text>
-        <Text style={styles.totalAmount}>{formatNIS(monthlyTotal)}</Text>
-      </View>
+      {/* Monthly Total */}
+      <ThemedCard variant="primary" style={styles.totalCard}>
+        <View style={styles.totalRow}>
+          <Text style={styles.totalLabel}>Monthly Total</Text>
+          <AnimatedNumber value={monthlyTotal} prefix="₪" style={styles.totalAmount} />
+        </View>
+      </ThemedCard>
 
-      <SectionList
-        sections={sections}
-        keyExtractor={(item) => String(item.id)}
-        renderSectionHeader={({ section }) => (
-          <View style={styles.dateHeader}>
-            <Text style={styles.dateText}>{section.title}</Text>
-            <Text style={styles.dateTotalText}>{formatNIS(section.total)}</Text>
-          </View>
-        )}
-        renderItem={({ item }) => (
-          <TouchableOpacity style={styles.txRow} onLongPress={() => handleLongPress(item)}>
-            <View style={styles.txInfo}>
-              <Text style={styles.txDesc} numberOfLines={1}>{item.description}</Text>
-              <Text style={styles.txCategory}>
-                {LEISURE_CATEGORIES[item.category]?.label ?? item.category}
-              </Text>
+      {/* Transactions */}
+      <Animated.View style={{ flex: 1, opacity: fadeAnim }}>
+        <SectionList
+          sections={sections}
+          keyExtractor={(item) => String(item.id)}
+          renderSectionHeader={({ section }) => (
+            <View style={styles.dateHeader}>
+              <View style={styles.dateAccent} />
+              <Text style={styles.dateText}>{section.title}</Text>
+              <Text style={styles.dateTotalText}>{formatNIS(section.total)}</Text>
             </View>
-            <Text style={styles.txAmount}>{formatNIS(item.amount)}</Text>
-          </TouchableOpacity>
-        )}
-        ListEmptyComponent={
-          <Text style={styles.emptyText}>No transactions for this month.</Text>
-        }
-        contentContainerStyle={styles.list}
-      />
+          )}
+          renderItem={({ item }) => {
+            const categoryIcon = CATEGORY_ICONS[item.category] ?? CATEGORY_ICONS.other ?? 'dots-horizontal';
+            return (
+              <Pressable
+                style={styles.txRow}
+                onLongPress={() => handleLongPress(item)}
+                android_ripple={Platform.OS === 'android' ? { color: colors.primaryBg } : undefined}
+              >
+                <View style={styles.txIconWrap}>
+                  <MaterialCommunityIcons
+                    name={categoryIcon}
+                    size={20}
+                    color={colors.textTertiary}
+                  />
+                </View>
+                <View style={styles.txInfo}>
+                  <Text style={styles.txDesc} numberOfLines={1}>{item.description}</Text>
+                  <Text style={styles.txCategory}>
+                    {LEISURE_CATEGORIES[item.category]?.label ?? item.category}
+                  </Text>
+                </View>
+                <Text style={styles.txAmount}>{formatNIS(item.amount)}</Text>
+              </Pressable>
+            );
+          }}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialCommunityIcons name="receipt-text-outline" size={56} color={colors.textDisabled} />
+              <Text style={styles.emptyTitle}>No transactions</Text>
+              <Text style={styles.emptyText}>No spending recorded for this month.</Text>
+            </View>
+          }
+          contentContainerStyle={styles.list}
+        />
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  monthPicker: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#e2e8f0' },
-  arrow: { padding: 8 },
-  arrowText: { fontSize: 20, fontWeight: '700', color: '#2563eb' },
-  arrowDisabled: { opacity: 0.3 },
-  arrowTextDisabled: { color: '#94a3b8' },
-  monthLabel: { fontSize: 18, fontWeight: '600', color: '#1a1a1a' },
-  totalBadge: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12, backgroundColor: '#eff6ff' },
-  totalLabel: { fontSize: 14, color: '#1e40af', fontWeight: '500' },
-  totalAmount: { fontSize: 16, fontWeight: '700', color: '#2563eb' },
-  list: { padding: 16, paddingBottom: 32 },
-  dateHeader: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, backgroundColor: '#f8fafc' },
-  dateText: { fontSize: 14, fontWeight: '600', color: '#475569' },
-  dateTotalText: { fontSize: 14, fontWeight: '500', color: '#64748b' },
-  txRow: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#fff', padding: 14, borderRadius: 10, marginBottom: 6 },
-  txInfo: { flex: 1 },
-  txDesc: { fontSize: 15, color: '#374151' },
-  txCategory: { fontSize: 12, color: '#94a3b8', marginTop: 2 },
-  txAmount: { fontSize: 15, fontWeight: '600', color: '#1a1a1a', marginLeft: 12 },
-  emptyText: { color: '#64748b', textAlign: 'center', marginTop: 40, fontStyle: 'italic' },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  monthPicker: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.lg,
+    paddingVertical: spacing.md,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  arrowBtn: {
+    width: 40,
+    height: 40,
+    borderRadius: radius.circle,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  arrowDisabled: {
+    opacity: 0.3,
+  },
+  monthLabel: {
+    ...typography.heading3,
+    color: colors.textPrimary,
+  },
+  totalCard: {
+    marginHorizontal: spacing.lg,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+    padding: spacing.lg,
+  },
+  totalRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  totalLabel: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+  totalAmount: {
+    ...typography.numberSmall,
+    color: colors.primary,
+  },
+  list: {
+    padding: spacing.lg,
+    paddingBottom: spacing.xxl,
+  },
+  dateHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.background,
+    gap: spacing.sm,
+  },
+  dateAccent: {
+    width: 3,
+    height: 18,
+    borderRadius: 2,
+    backgroundColor: colors.primary,
+  },
+  dateText: {
+    ...typography.label,
+    color: colors.textSecondary,
+    flex: 1,
+  },
+  dateTotalText: {
+    ...typography.captionMedium,
+    color: colors.textTertiary,
+  },
+  txRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    padding: spacing.md,
+    borderRadius: radius.lg,
+    marginBottom: spacing.sm,
+    ...shadows.sm,
+  },
+  txIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: radius.circle,
+    backgroundColor: colors.borderLight,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginEnd: spacing.md,
+  },
+  txInfo: {
+    flex: 1,
+  },
+  txDesc: {
+    ...typography.bodyMedium,
+    color: colors.textSecondary,
+  },
+  txCategory: {
+    ...typography.caption,
+    color: colors.textDisabled,
+    marginTop: spacing.xxs,
+  },
+  txAmount: {
+    ...typography.bodySemiBold,
+    color: colors.textPrimary,
+    marginStart: spacing.md,
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxxl,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle: {
+    ...typography.heading4,
+    color: colors.textPrimary,
+    marginTop: spacing.lg,
+    textAlign: 'center',
+  },
+  emptyText: {
+    ...typography.body,
+    color: colors.textTertiary,
+    marginTop: spacing.sm,
+    textAlign: 'center',
+  },
 });

@@ -1,24 +1,30 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
+  Animated,
   StyleSheet,
-  Alert,
+  Easing,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { insertTransaction } from '@/src/core/db/queries/transactions';
 import { useBudgetStore } from '@/src/stores/budget-store';
 import { CategorySelector } from '@/src/components/CategorySelector';
-import { formatNIS } from '@/src/utils/currency';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { ThemedButton } from '@/src/components/ThemedButton';
+import { AnimatedNumber } from '@/src/components/AnimatedNumber';
+import { useToast } from '@/src/components/Toast';
 import { formatDate } from '@/src/utils/date';
 import { isValidAmount, isValidDescription } from '@/src/utils/validation';
 import { formStyles } from '@/src/styles/form-styles';
+import { colors, typography, spacing, radius, durations } from '@/src/core/theme';
 
 export default function AddExpenseScreen() {
   const db = useSQLiteContext();
+  const { showToast } = useToast();
   const refreshBudget = useBudgetStore((s) => s.refreshBudget);
   const dailyBudget = useBudgetStore((s) => s.snapshot.dailyBudget);
 
@@ -27,13 +33,36 @@ export default function AddExpenseScreen() {
   const [category, setCategory] = useState('food_dining');
   const [saving, setSaving] = useState(false);
 
+  // Success check animation
+  const checkScale = useRef(new Animated.Value(0)).current;
+  const checkOpacity = useRef(new Animated.Value(0)).current;
+
+  const playSuccessAnimation = () => {
+    checkScale.setValue(0);
+    checkOpacity.setValue(1);
+    Animated.sequence([
+      Animated.spring(checkScale, {
+        toValue: 1,
+        friction: 4,
+        tension: 100,
+        useNativeDriver: true,
+      }),
+      Animated.timing(checkOpacity, {
+        toValue: 0,
+        duration: 300,
+        delay: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  };
+
   const handleSave = async () => {
     if (!isValidAmount(amount)) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount.');
+      showToast('Please enter a valid amount.', 'error');
       return;
     }
     if (!isValidDescription(description)) {
-      Alert.alert('Missing Description', 'Please enter a description (max 200 chars).');
+      showToast('Please enter a description (max 200 chars).', 'error');
       return;
     }
     const num = parseFloat(amount);
@@ -47,12 +76,9 @@ export default function AddExpenseScreen() {
         timestamp: new Date().toISOString(),
       });
       await refreshBudget(db);
-      const updatedBudget = useBudgetStore.getState().snapshot.dailyBudget;
 
-      Alert.alert(
-        'Expense Added',
-        `${formatNIS(num)} recorded. New daily budget: ${formatNIS(updatedBudget)}`
-      );
+      playSuccessAnimation();
+      showToast('Expense added!', 'success');
       setAmount('');
       setDescription('');
     } finally {
@@ -62,20 +88,31 @@ export default function AddExpenseScreen() {
 
   return (
     <ScrollView style={formStyles.container} contentContainerStyle={formStyles.content} keyboardShouldPersistTaps="handled">
-      <Text style={formStyles.budgetHint}>
-        Today's budget: {formatNIS(dailyBudget)}
-      </Text>
+      {/* Budget hint card */}
+      <ThemedCard variant="primary" style={styles.budgetCard}>
+        <View style={styles.budgetCardInner}>
+          <MaterialCommunityIcons name="gauge" size={24} color={colors.primary} />
+          <View style={styles.budgetCardText}>
+            <Text style={styles.budgetLabel}>Today's Budget</Text>
+            <AnimatedNumber value={dailyBudget} prefix="₪" style={styles.budgetValue} />
+          </View>
+        </View>
+      </ThemedCard>
 
       <Text style={formStyles.label}>Amount (NIS)</Text>
-      <TextInput
-        style={formStyles.input}
-        value={amount}
-        onChangeText={setAmount}
-        placeholder="0.00"
-        keyboardType="numeric"
-        returnKeyType="next"
-        autoFocus
-      />
+      <View style={styles.amountInputWrap}>
+        <Text style={styles.nisPrefix}>₪</Text>
+        <TextInput
+          style={styles.amountInput}
+          value={amount}
+          onChangeText={setAmount}
+          placeholder="0.00"
+          placeholderTextColor={colors.textDisabled}
+          keyboardType="numeric"
+          returnKeyType="next"
+          autoFocus
+        />
+      </View>
 
       <Text style={formStyles.label}>Description</Text>
       <TextInput
@@ -89,13 +126,31 @@ export default function AddExpenseScreen() {
       <Text style={formStyles.label}>Category</Text>
       <CategorySelector selected={category} onSelect={setCategory} />
 
-      <TouchableOpacity
-        style={[styles.saveBtn, saving && styles.saveBtnDisabled]}
-        onPress={handleSave}
-        disabled={saving}
+      <View style={styles.buttonWrap}>
+        <ThemedButton
+          title={saving ? 'Saving...' : 'Add Expense'}
+          onPress={handleSave}
+          variant="success"
+          size="lg"
+          loading={saving}
+          disabled={saving}
+          icon="add"
+        />
+      </View>
+
+      {/* Success check overlay */}
+      <Animated.View
+        style={[
+          styles.checkOverlay,
+          {
+            opacity: checkOpacity,
+            transform: [{ scale: checkScale }],
+          },
+        ]}
+        pointerEvents="none"
       >
-        <Text style={styles.saveText}>{saving ? 'Saving...' : 'Add Expense'}</Text>
-      </TouchableOpacity>
+        <MaterialCommunityIcons name="check-circle" size={64} color={colors.success} />
+      </Animated.View>
 
       <Text style={styles.dateText}>
         Date: {formatDate(new Date())}
@@ -105,8 +160,61 @@ export default function AddExpenseScreen() {
 }
 
 const styles = StyleSheet.create({
-  saveBtn: { backgroundColor: '#16a34a', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 32 },
-  saveBtnDisabled: { opacity: 0.6 },
-  saveText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  dateText: { textAlign: 'center', color: '#64748b', marginTop: 12, fontSize: 13 },
+  budgetCard: {
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+  },
+  budgetCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  budgetCardText: {
+    flex: 1,
+  },
+  budgetLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  budgetValue: {
+    ...typography.heading3,
+    color: colors.primary,
+  },
+  amountInputWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: 14,
+  },
+  nisPrefix: {
+    ...typography.heading3,
+    color: colors.textTertiary,
+    marginEnd: spacing.sm,
+  },
+  amountInput: {
+    flex: 1,
+    fontSize: 24,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    paddingVertical: spacing.md,
+    textAlign: 'center',
+  },
+  buttonWrap: {
+    marginTop: spacing.xxl,
+  },
+  checkOverlay: {
+    position: 'absolute',
+    top: '50%',
+    alignSelf: 'center',
+    marginTop: -32,
+  },
+  dateText: {
+    textAlign: 'center',
+    color: colors.textTertiary,
+    marginTop: spacing.md,
+    ...typography.caption,
+  },
 });

@@ -1,27 +1,108 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
   TextInput,
-  TouchableOpacity,
   ScrollView,
-  ActivityIndicator,
-  Alert,
+  Animated,
+  Easing,
   StyleSheet,
 } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { useAICritic } from '@/src/features/agent/hooks/useAICritic';
 import { CriticVerdictCard } from '@/src/features/agent/components/CriticVerdict';
 import { StrictnessBadge } from '@/src/features/agent/components/StrictnessBadge';
 import { useBudgetStore } from '@/src/stores/budget-store';
 import { insertTransaction } from '@/src/core/db/queries/transactions';
 import { CategorySelector } from '@/src/components/CategorySelector';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { ThemedButton } from '@/src/components/ThemedButton';
+import { AnimatedNumber } from '@/src/components/AnimatedNumber';
+import { useToast } from '@/src/components/Toast';
 import { formatNIS } from '@/src/utils/currency';
 import { formStyles } from '@/src/styles/form-styles';
 import { STRICT_MODE_THRESHOLD } from '@/src/core/constants/app-constants';
+import { colors, typography, spacing, radius, durations } from '@/src/core/theme';
+
+function ThinkingIndicator() {
+  const dot1 = useRef(new Animated.Value(0.3)).current;
+  const dot2 = useRef(new Animated.Value(0.3)).current;
+  const dot3 = useRef(new Animated.Value(0.3)).current;
+
+  useEffect(() => {
+    const animateDot = (dot: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(dot, {
+            toValue: 1,
+            duration: 400,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(dot, {
+            toValue: 0.3,
+            duration: 400,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ]),
+      );
+
+    const a1 = animateDot(dot1, 0);
+    const a2 = animateDot(dot2, 200);
+    const a3 = animateDot(dot3, 400);
+    a1.start();
+    a2.start();
+    a3.start();
+
+    return () => {
+      a1.stop();
+      a2.stop();
+      a3.stop();
+    };
+  }, [dot1, dot2, dot3]);
+
+  return (
+    <View style={thinkingStyles.container}>
+      <MaterialCommunityIcons name="robot-excited-outline" size={48} color={colors.purple} />
+      <View style={thinkingStyles.dotsRow}>
+        <Animated.View style={[thinkingStyles.dot, { opacity: dot1 }]} />
+        <Animated.View style={[thinkingStyles.dot, { opacity: dot2 }]} />
+        <Animated.View style={[thinkingStyles.dot, { opacity: dot3 }]} />
+      </View>
+      <Text style={thinkingStyles.text}>The Critic is thinking...</Text>
+    </View>
+  );
+}
+
+const thinkingStyles = StyleSheet.create({
+  container: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxxl,
+  },
+  dotsRow: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+    marginTop: spacing.lg,
+  },
+  dot: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: colors.purple,
+  },
+  text: {
+    ...typography.bodyMedium,
+    color: colors.textTertiary,
+    marginTop: spacing.md,
+  },
+});
 
 export default function AskCriticScreen() {
   const db = useSQLiteContext();
+  const { showToast } = useToast();
   const { verdict, status, error, evaluate, reset } = useAICritic();
   const { snapshot, refreshBudget } = useBudgetStore();
 
@@ -34,7 +115,7 @@ export default function AskCriticScreen() {
 
   const handleEvaluate = () => {
     if (!itemName.trim() || priceNum <= 0) {
-      Alert.alert('Missing Info', 'Please enter item name and price.');
+      showToast('Please enter item name and price.', 'error');
       return;
     }
     evaluate(itemName.trim(), priceNum, category);
@@ -48,8 +129,7 @@ export default function AskCriticScreen() {
       timestamp: new Date().toISOString(),
     });
     await refreshBudget(db);
-    const updatedBudget = useBudgetStore.getState().snapshot.dailyBudget;
-    Alert.alert('Recorded', `${formatNIS(priceNum)} added. New daily budget: ${formatNIS(updatedBudget)}`);
+    showToast(`${formatNIS(priceNum)} recorded.`, 'success');
     resetForm();
   };
 
@@ -65,7 +145,16 @@ export default function AskCriticScreen() {
 
   return (
     <ScrollView style={formStyles.container} contentContainerStyle={formStyles.content} keyboardShouldPersistTaps="handled">
-      <Text style={formStyles.budgetHint}>Daily budget: {formatNIS(snapshot.dailyBudget)}</Text>
+      {/* Budget hint card */}
+      <ThemedCard variant="primary" style={styles.budgetCard}>
+        <View style={styles.budgetCardInner}>
+          <MaterialCommunityIcons name="gauge" size={24} color={colors.primary} />
+          <View style={styles.budgetCardText}>
+            <Text style={styles.budgetLabel}>Daily Budget</Text>
+            <AnimatedNumber value={snapshot.dailyBudget} prefix="₪" style={styles.budgetValue} />
+          </View>
+        </View>
+      </ThemedCard>
 
       {!verdict && status !== 'loading' && (
         <>
@@ -93,38 +182,52 @@ export default function AskCriticScreen() {
 
           <StrictnessBadge isStrict={isStrict} />
 
-          <TouchableOpacity style={styles.evaluateBtn} onPress={handleEvaluate}>
-            <Text style={styles.evaluateText}>Ask the Critic</Text>
-          </TouchableOpacity>
+          <ThemedButton
+            title="Ask the Critic"
+            onPress={handleEvaluate}
+            variant="primary"
+            size="lg"
+            icon="smart-toy"
+            style={{ ...styles.evaluateBtn, backgroundColor: colors.purple }}
+          />
         </>
       )}
 
-      {status === 'loading' && (
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#2563eb" />
-          <Text style={styles.loadingText}>The Critic is thinking...</Text>
-        </View>
-      )}
+      {status === 'loading' && <ThinkingIndicator />}
 
       {error && (
-        <View style={styles.errorContainer}>
+        <ThemedCard variant="danger" style={styles.errorCard}>
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={handleEvaluate}>
-            <Text style={styles.retryText}>Retry</Text>
-          </TouchableOpacity>
-        </View>
+          <ThemedButton
+            title="Retry"
+            onPress={handleEvaluate}
+            variant="danger"
+            size="sm"
+            icon="refresh"
+            style={styles.retryBtn}
+          />
+        </ThemedCard>
       )}
 
       {verdict && (
         <>
           <CriticVerdictCard verdict={verdict} />
           <View style={styles.actionRow}>
-            <TouchableOpacity style={styles.buyBtn} onPress={handleBuyAnyway}>
-              <Text style={styles.buyText}>Buy Anyway</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.skipBtn} onPress={handleSkip}>
-              <Text style={styles.skipText}>Skip</Text>
-            </TouchableOpacity>
+            <ThemedButton
+              title="Buy Anyway"
+              onPress={handleBuyAnyway}
+              variant="secondary"
+              size="lg"
+              icon="shopping-cart"
+              style={{ ...styles.actionBtn, backgroundColor: colors.warning }}
+            />
+            <ThemedButton
+              title="Skip"
+              onPress={handleSkip}
+              variant="outline"
+              size="lg"
+              style={styles.actionBtn}
+            />
           </View>
         </>
       )}
@@ -133,17 +236,47 @@ export default function AskCriticScreen() {
 }
 
 const styles = StyleSheet.create({
-  evaluateBtn: { backgroundColor: '#7c3aed', paddingVertical: 16, borderRadius: 12, alignItems: 'center', marginTop: 24 },
-  evaluateText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  loadingContainer: { alignItems: 'center', paddingVertical: 40 },
-  loadingText: { color: '#64748b', marginTop: 12, fontSize: 15 },
-  errorContainer: { backgroundColor: '#fef2f2', padding: 16, borderRadius: 12, marginTop: 16 },
-  errorText: { color: '#dc2626', fontSize: 14 },
-  retryBtn: { marginTop: 8, alignSelf: 'center' },
-  retryText: { color: '#2563eb', fontWeight: '600' },
-  actionRow: { flexDirection: 'row', gap: 12, marginTop: 16 },
-  buyBtn: { flex: 1, backgroundColor: '#f59e0b', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  buyText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  skipBtn: { flex: 1, backgroundColor: '#e2e8f0', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  skipText: { color: '#475569', fontSize: 16, fontWeight: '600' },
+  budgetCard: {
+    marginBottom: spacing.xl,
+    padding: spacing.lg,
+  },
+  budgetCardInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+  },
+  budgetCardText: {
+    flex: 1,
+  },
+  budgetLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  budgetValue: {
+    ...typography.heading3,
+    color: colors.primary,
+  },
+  evaluateBtn: {
+    marginTop: spacing.xl,
+  },
+  errorCard: {
+    marginTop: spacing.lg,
+    padding: spacing.lg,
+  },
+  errorText: {
+    ...typography.body,
+    color: colors.dangerText,
+  },
+  retryBtn: {
+    marginTop: spacing.sm,
+    alignSelf: 'center',
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: spacing.md,
+    marginTop: spacing.lg,
+  },
+  actionBtn: {
+    flex: 1,
+  },
 });

@@ -12,7 +12,21 @@
       "Bash(cd:*)",
       "Bash(grep:*)",
       "Bash(ls:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(gh repo view:*)",
+      "Bash(gh auth status:*)",
+      "Bash(git remote add:*)",
+      "Bash(git remote:*)",
+      "Bash(git push:*)",
+      "Bash(git fetch:*)",
+      "Bash(gh pr create:*)",
+      "Bash(gh pr merge:*)",
+      "Bash(gh repo edit:*)",
+      "Bash(git commit:*)",
+      "Bash(python3:*)",
+      "Bash(wc:*)",
+      "Bash(node test-import.mjs:*)",
+      "Bash(pip install:*)"
     ]
   }
 }

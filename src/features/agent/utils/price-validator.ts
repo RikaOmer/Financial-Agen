@@ -1,11 +1,9 @@
 // Hardcoded price ceilings per category (in NIS)
 const CATEGORY_CEILINGS: Record<string, number> = {
   food_dining: 120,
-  entertainment: 200,
+  entertainment: 350,
   shopping: 500,
-  fitness: 350,
-  transport_leisure: 80,
-  hobbies: 300,
+  housekeeping: 200,
   subscriptions: 100,
   other: 200,
 };

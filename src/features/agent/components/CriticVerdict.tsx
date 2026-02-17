@@ -1,5 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, typography, radius, spacing, shadows } from '@/src/core/theme';
 import type { CriticVerdict as VerdictType } from '@/src/types/agent';
 
 interface Props {
@@ -7,9 +9,24 @@ interface Props {
 }
 
 const RECOMMENDATION_CONFIG = {
-  approve: { color: '#16a34a', bg: '#f0fdf4', label: 'Go For It', icon: '✓' },
-  consider: { color: '#f59e0b', bg: '#fffbeb', label: 'Think Twice', icon: '?' },
-  reject: { color: '#dc2626', bg: '#fef2f2', label: 'Skip It', icon: '✕' },
+  approve: {
+    color: colors.success,
+    bg: colors.successBg,
+    label: 'Go For It',
+    icon: 'check-circle' as const,
+  },
+  consider: {
+    color: colors.warning,
+    bg: colors.warningBg,
+    label: 'Think Twice',
+    icon: 'alert-circle' as const,
+  },
+  reject: {
+    color: colors.danger,
+    bg: colors.dangerBg,
+    label: 'Skip It',
+    icon: 'close-circle' as const,
+  },
 };
 
 const ASSESSMENT_LABELS: Record<string, string> = {
@@ -22,10 +39,54 @@ const ASSESSMENT_LABELS: Record<string, string> = {
 export function CriticVerdictCard({ verdict }: Props) {
   const config = RECOMMENDATION_CONFIG[verdict.recommendation];
 
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(20)).current;
+  const confidenceAnim = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 400,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    Animated.timing(confidenceAnim, {
+      toValue: verdict.confidence,
+      duration: 800,
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: false,
+      delay: 300,
+    }).start();
+  }, [fadeAnim, slideAnim, confidenceAnim, verdict.confidence]);
+
+  const confidenceWidth = confidenceAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0%', '100%'],
+  });
+
   return (
-    <View style={[styles.card, { backgroundColor: config.bg, borderColor: config.color }]}>
+    <Animated.View
+      style={[
+        styles.card,
+        { backgroundColor: config.bg, borderColor: config.color },
+        { opacity: fadeAnim, transform: [{ translateY: slideAnim }] },
+      ]}
+    >
       <View style={styles.header}>
-        <Text style={[styles.icon, { color: config.color }]}>{config.icon}</Text>
+        <MaterialCommunityIcons
+          name={config.icon}
+          size={28}
+          color={config.color}
+          style={styles.icon}
+        />
         <Text style={[styles.label, { color: config.color }]}>{config.label}</Text>
         <Text style={styles.assessment}>
           {ASSESSMENT_LABELS[verdict.valueAssessment] ?? verdict.valueAssessment}
@@ -36,7 +97,15 @@ export function CriticVerdictCard({ verdict }: Props) {
 
       {verdict.alternativeSuggestion && (
         <View style={styles.altContainer}>
-          <Text style={styles.altLabel}>Alternative:</Text>
+          <View style={styles.altHeader}>
+            <MaterialCommunityIcons
+              name="lightbulb-outline"
+              size={16}
+              color={colors.textTertiary}
+              style={styles.altIcon}
+            />
+            <Text style={styles.altLabel}>Alternative:</Text>
+          </View>
           <Text style={styles.altText}>{verdict.alternativeSuggestion}</Text>
         </View>
       )}
@@ -44,32 +113,67 @@ export function CriticVerdictCard({ verdict }: Props) {
       <View style={styles.confidenceRow}>
         <Text style={styles.confidenceLabel}>Confidence:</Text>
         <View style={styles.confidenceBar}>
-          <View
+          <Animated.View
             style={[
               styles.confidenceFill,
-              { width: `${verdict.confidence * 100}%`, backgroundColor: config.color },
+              { width: confidenceWidth, backgroundColor: config.color },
             ]}
           />
         </View>
         <Text style={styles.confidenceValue}>{Math.round(verdict.confidence * 100)}%</Text>
       </View>
-    </View>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 16, padding: 20, borderWidth: 2, marginVertical: 12 },
-  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  icon: { fontSize: 24, fontWeight: '700', marginRight: 8 },
-  label: { fontSize: 20, fontWeight: '700', flex: 1 },
-  assessment: { fontSize: 13, color: '#64748b', backgroundColor: '#f1f5f9', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 8 },
-  reasoning: { fontSize: 15, color: '#374151', lineHeight: 22 },
-  altContainer: { marginTop: 12, backgroundColor: 'rgba(255,255,255,0.6)', padding: 12, borderRadius: 8 },
-  altLabel: { fontSize: 13, fontWeight: '600', color: '#64748b' },
-  altText: { fontSize: 14, color: '#374151', marginTop: 2 },
-  confidenceRow: { flexDirection: 'row', alignItems: 'center', marginTop: 12 },
-  confidenceLabel: { fontSize: 12, color: '#64748b', marginRight: 8 },
-  confidenceBar: { flex: 1, height: 6, backgroundColor: 'rgba(0,0,0,0.1)', borderRadius: 3, overflow: 'hidden' },
+  card: {
+    borderRadius: radius.xl,
+    padding: spacing.xl,
+    borderWidth: 2,
+    marginVertical: spacing.md,
+    ...shadows.md,
+  },
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: spacing.md },
+  icon: { marginEnd: spacing.sm },
+  label: { ...typography.heading3, flex: 1 },
+  assessment: {
+    ...typography.captionMedium,
+    color: colors.textTertiary,
+    backgroundColor: colors.borderLight,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radius.sm,
+  },
+  reasoning: { ...typography.body, color: colors.textSecondary },
+  altContainer: {
+    marginTop: spacing.md,
+    backgroundColor: colors.surfaceOverlay,
+    padding: spacing.md,
+    borderRadius: radius.sm,
+  },
+  altHeader: { flexDirection: 'row', alignItems: 'center' },
+  altIcon: { marginEnd: spacing.xs },
+  altLabel: { ...typography.captionMedium, color: colors.textTertiary },
+  altText: { ...typography.caption, color: colors.textSecondary, marginTop: spacing.xxs },
+  confidenceRow: { flexDirection: 'row', alignItems: 'center', marginTop: spacing.md },
+  confidenceLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginEnd: spacing.sm,
+  },
+  confidenceBar: {
+    flex: 1,
+    height: 6,
+    backgroundColor: colors.subtleBg,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
   confidenceFill: { height: '100%', borderRadius: 3 },
-  confidenceValue: { fontSize: 12, color: '#64748b', marginLeft: 8, width: 35 },
+  confidenceValue: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginStart: spacing.sm,
+    width: 35,
+  },
 });

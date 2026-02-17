@@ -1,8 +1,11 @@
-import React from 'react';
-import { View, Text, Switch, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Switch, Animated, StyleSheet } from 'react-native';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import type { DetectedCommitment } from '@/src/types/csv';
 import { formatNIS } from '@/src/utils/currency';
 import { LEISURE_CATEGORIES } from '@/src/core/constants/categories';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { colors, typography, spacing } from '@/src/core/theme';
 
 interface Props {
   commitment: DetectedCommitment;
@@ -11,47 +14,67 @@ interface Props {
 
 export function CommitmentCard({ commitment, onToggle }: Props) {
   const categoryLabel = LEISURE_CATEGORIES[commitment.category]?.label ?? 'Other';
+  const opacityAnim = useRef(new Animated.Value(commitment.selected ? 1 : 0.4)).current;
+
+  useEffect(() => {
+    Animated.timing(opacityAnim, {
+      toValue: commitment.selected ? 1 : 0.4,
+      duration: 250,
+      useNativeDriver: true,
+    }).start();
+  }, [commitment.selected, opacityAnim]);
+
+  const typeIcon: keyof typeof MaterialCommunityIcons.glyphMap =
+    commitment.type === 'subscription' ? 'repeat' : 'cash-multiple';
 
   return (
-    <View style={[styles.card, !commitment.selected && styles.cardDisabled]}>
-      <View style={styles.header}>
-        <View style={styles.info}>
-          <Text style={styles.name}>{commitment.name}</Text>
-          <Text style={styles.meta}>
-            {commitment.type === 'subscription' ? 'Subscription' : 'Installment'}
-            {commitment.remaining_installments
-              ? ` (${commitment.remaining_installments} remaining)`
-              : ''}
-          </Text>
+    <Animated.View style={[styles.wrapper, { opacity: opacityAnim }]}>
+      <ThemedCard style={styles.card}>
+        <View style={styles.header}>
+          <MaterialCommunityIcons
+            name={typeIcon}
+            size={20}
+            color={colors.primary}
+            style={styles.typeIcon}
+          />
+          <View style={styles.info}>
+            <Text style={styles.name}>{commitment.name}</Text>
+            <Text style={styles.meta}>
+              {commitment.type === 'subscription' ? 'Subscription' : 'Installment'}
+              {commitment.remaining_installments
+                ? ` (${commitment.remaining_installments} remaining)`
+                : ''}
+            </Text>
+          </View>
+          <Switch value={commitment.selected} onValueChange={onToggle} />
         </View>
-        <Switch value={commitment.selected} onValueChange={onToggle} />
-      </View>
-      <View style={styles.footer}>
-        <Text style={styles.amount}>{formatNIS(commitment.amount)}/mo</Text>
-        <Text style={styles.category}>{categoryLabel}</Text>
-      </View>
-    </View>
+        <View style={styles.footer}>
+          <Text style={styles.amount}>{formatNIS(commitment.amount)}/mo</Text>
+          <Text style={styles.category}>{categoryLabel}</Text>
+        </View>
+      </ThemedCard>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
-    marginVertical: 6,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+  wrapper: { marginVertical: spacing.xs },
+  card: { padding: spacing.lg },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cardDisabled: { opacity: 0.5 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  typeIcon: {
+    marginEnd: spacing.sm,
+  },
   info: { flex: 1 },
-  name: { fontSize: 16, fontWeight: '600', color: '#1a1a1a' },
-  meta: { fontSize: 13, color: '#666', marginTop: 2 },
-  footer: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 8 },
-  amount: { fontSize: 18, fontWeight: '700', color: '#2563eb' },
-  category: { fontSize: 13, color: '#888', alignSelf: 'flex-end' },
+  name: { ...typography.heading4, color: colors.textPrimary },
+  meta: { ...typography.caption, color: colors.textTertiary, marginTop: spacing.xxs },
+  footer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: spacing.sm,
+  },
+  amount: { ...typography.numberSmall, color: colors.primary },
+  category: { ...typography.caption, color: colors.textDisabled, alignSelf: 'flex-end' },
 });

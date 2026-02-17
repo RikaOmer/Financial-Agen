@@ -1,54 +1,199 @@
-import React from 'react';
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, Animated, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, typography, spacing, radius, shadows, durations } from '@/src/core/theme';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { ThemedButton } from '@/src/components/ThemedButton';
+
+const FEATURES = [
+  { icon: 'magnify' as const, text: 'Analyze your spending DNA from bank statements' },
+  { icon: 'repeat' as const, text: 'Track subscriptions & installments' },
+  { icon: 'robot' as const, text: 'Get AI critique before every purchase' },
+];
 
 export default function WelcomeScreen() {
+  const heroOpacity = useRef(new Animated.Value(0)).current;
+  const heroTranslateY = useRef(new Animated.Value(-20)).current;
+
+  const featureAnims = useRef(
+    FEATURES.map(() => ({
+      opacity: new Animated.Value(0),
+      translateX: new Animated.Value(-20),
+    })),
+  ).current;
+
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsTranslateY = useRef(new Animated.Value(20)).current;
+
+  useEffect(() => {
+    // Hero entrance
+    Animated.parallel([
+      Animated.timing(heroOpacity, {
+        toValue: 1,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+      Animated.timing(heroTranslateY, {
+        toValue: 0,
+        duration: 500,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Staggered feature rows
+    Animated.stagger(
+      150,
+      featureAnims.map((anim) =>
+        Animated.parallel([
+          Animated.timing(anim.opacity, {
+            toValue: 1,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.translateX, {
+            toValue: 0,
+            duration: 400,
+            useNativeDriver: true,
+          }),
+        ]),
+      ),
+    ).start();
+
+    // Buttons delayed entrance
+    setTimeout(() => {
+      Animated.parallel([
+        Animated.timing(buttonsOpacity, {
+          toValue: 1,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+        Animated.timing(buttonsTranslateY, {
+          toValue: 0,
+          duration: 400,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }, 600);
+  }, []);
+
   return (
     <View style={styles.container}>
-      <View style={styles.hero}>
-        <Text style={styles.emoji}>💰</Text>
+      <Animated.View
+        style={[
+          styles.hero,
+          { opacity: heroOpacity, transform: [{ translateY: heroTranslateY }] },
+        ]}
+      >
+        <View style={styles.iconCircle}>
+          <MaterialCommunityIcons name="wallet-outline" size={80} color={colors.primary} />
+        </View>
         <Text style={styles.title}>Financial Twin</Text>
         <Text style={styles.subtitle}>
           Take control of your leisure spending with AI-powered insights
         </Text>
-      </View>
+      </Animated.View>
 
       <View style={styles.features}>
-        <Text style={styles.feature}>Analyze your spending DNA from bank CSVs</Text>
-        <Text style={styles.feature}>Track subscriptions & installments</Text>
-        <Text style={styles.feature}>Get AI critique before every purchase</Text>
+        {FEATURES.map((feature, index) => (
+          <Animated.View
+            key={feature.icon}
+            style={{
+              opacity: featureAnims[index].opacity,
+              transform: [{ translateX: featureAnims[index].translateX }],
+            }}
+          >
+            <ThemedCard style={styles.featureCard}>
+              <View style={styles.featureRow}>
+                <MaterialCommunityIcons
+                  name={feature.icon}
+                  size={24}
+                  color={colors.primary}
+                />
+                <Text style={styles.featureText}>{feature.text}</Text>
+              </View>
+            </ThemedCard>
+          </Animated.View>
+        ))}
       </View>
 
-      <View style={styles.actions}>
-        <TouchableOpacity
-          style={styles.primaryBtn}
+      <Animated.View
+        style={[
+          styles.actions,
+          { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslateY }] },
+        ]}
+      >
+        <ThemedButton
+          title="Get Started"
           onPress={() => router.push('/(onboarding)/csv-upload')}
-        >
-          <Text style={styles.primaryText}>Get Started with CSV</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.secondaryBtn}
+          variant="primary"
+          size="lg"
+        />
+        <ThemedButton
+          title="Skip Import - Set Budget Manually"
           onPress={() => router.push('/(onboarding)/set-target')}
-        >
-          <Text style={styles.secondaryText}>Skip CSV - Set Budget Manually</Text>
-        </TouchableOpacity>
-      </View>
+          variant="outline"
+          size="lg"
+          style={styles.skipButton}
+        />
+      </Animated.View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24, justifyContent: 'center' },
-  hero: { alignItems: 'center', marginBottom: 40 },
-  emoji: { fontSize: 64, marginBottom: 16 },
-  title: { fontSize: 32, fontWeight: '800', color: '#1a1a1a' },
-  subtitle: { fontSize: 16, color: '#64748b', textAlign: 'center', marginTop: 8, lineHeight: 24 },
-  features: { marginBottom: 40, paddingHorizontal: 16 },
-  feature: { fontSize: 15, color: '#475569', paddingVertical: 8, paddingLeft: 12, borderLeftWidth: 3, borderLeftColor: '#2563eb', marginBottom: 8 },
-  actions: { gap: 12 },
-  primaryBtn: { backgroundColor: '#2563eb', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  primaryText: { color: '#fff', fontSize: 17, fontWeight: '600' },
-  secondaryBtn: { paddingVertical: 16, borderRadius: 12, alignItems: 'center', borderWidth: 1, borderColor: '#cbd5e1' },
-  secondaryText: { color: '#64748b', fontSize: 15 },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.xl,
+    justifyContent: 'center',
+  },
+  hero: {
+    alignItems: 'center',
+    marginBottom: spacing.xxxl,
+  },
+  iconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: colors.primaryBg,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.lg,
+  },
+  title: {
+    ...typography.heading1,
+    color: colors.textPrimary,
+  },
+  subtitle: {
+    ...typography.body,
+    color: colors.textTertiary,
+    textAlign: 'center',
+    marginTop: spacing.sm,
+    lineHeight: 24,
+  },
+  features: {
+    marginBottom: spacing.xxxl,
+    gap: spacing.sm,
+  },
+  featureCard: {
+    ...shadows.sm,
+    padding: spacing.md,
+  },
+  featureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  featureText: {
+    ...typography.body,
+    color: colors.textSecondary,
+    marginStart: spacing.md,
+    flex: 1,
+  },
+  actions: {
+    gap: spacing.md,
+  },
+  skipButton: {
+    marginTop: 0,
+  },
 });

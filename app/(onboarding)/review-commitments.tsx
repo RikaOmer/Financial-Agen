@@ -1,7 +1,11 @@
-import React from 'react';
-import { View, Text, FlatList, TouchableOpacity, StyleSheet } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, FlatList, Animated, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { colors, typography, spacing, shadows, durations } from '@/src/core/theme';
+import { ThemedButton } from '@/src/components/ThemedButton';
+import { AnimatedNumber } from '@/src/components/AnimatedNumber';
+import { EmptyState } from '@/src/components/EmptyState';
 import { useOnboardingStore } from '@/src/stores/onboarding-store';
 import { CommitmentCard } from '@/src/features/onboarding/components/CommitmentCard';
 import { insertCommitment } from '@/src/core/db/queries/commitments';
@@ -15,6 +19,26 @@ export default function ReviewCommitmentsScreen() {
   const selectedTotal = detectedCommitments
     .filter((c) => c.selected)
     .reduce((sum, c) => sum + c.amount, 0);
+
+  // Staggered entrance animations for list items
+  const itemAnims = useRef(
+    detectedCommitments.map(() => new Animated.Value(0)),
+  ).current;
+
+  useEffect(() => {
+    if (detectedCommitments.length > 0) {
+      Animated.stagger(
+        80,
+        itemAnims.slice(0, detectedCommitments.length).map((anim) =>
+          Animated.timing(anim, {
+            toValue: 1,
+            duration: durations.entrance,
+            useNativeDriver: true,
+          }),
+        ),
+      ).start();
+    }
+  }, [detectedCommitments.length]);
 
   const handleConfirm = async () => {
     const selected = detectedCommitments.filter((c) => c.selected);
@@ -32,6 +56,27 @@ export default function ReviewCommitmentsScreen() {
     router.push('/(onboarding)/set-target');
   };
 
+  const renderItem = ({ item, index }: { item: typeof detectedCommitments[0]; index: number }) => {
+    const anim = itemAnims[index];
+    if (!anim) return <CommitmentCard commitment={item} onToggle={() => toggleCommitment(index)} />;
+
+    return (
+      <Animated.View
+        style={{
+          opacity: anim,
+          transform: [{
+            translateY: anim.interpolate({
+              inputRange: [0, 1],
+              outputRange: [16, 0],
+            }),
+          }],
+        }}
+      >
+        <CommitmentCard commitment={item} onToggle={() => toggleCommitment(index)} />
+      </Animated.View>
+    );
+  };
+
   return (
     <View style={styles.container}>
       <Text style={styles.title}>Detected Commitments</Text>
@@ -43,35 +88,68 @@ export default function ReviewCommitmentsScreen() {
       <FlatList
         data={detectedCommitments}
         keyExtractor={(_, i) => String(i)}
-        renderItem={({ item, index }) => (
-          <CommitmentCard commitment={item} onToggle={() => toggleCommitment(index)} />
-        )}
+        renderItem={renderItem}
         ListEmptyComponent={
-          <Text style={styles.empty}>No commitments detected. You can add them later.</Text>
+          <EmptyState
+            icon="playlist-add-check"
+            title="No Commitments Detected"
+            description="No subscriptions or installments were found. You can add them later from the Commitments tab."
+          />
         }
         contentContainerStyle={styles.list}
       />
 
       <View style={styles.footer}>
         <Text style={styles.totalLabel}>Total monthly commitments</Text>
-        <Text style={styles.totalAmount}>{formatNIS(selectedTotal)}</Text>
-        <TouchableOpacity style={styles.confirmBtn} onPress={handleConfirm}>
-          <Text style={styles.confirmText}>Confirm & Set Target</Text>
-        </TouchableOpacity>
+        <AnimatedNumber
+          value={selectedTotal}
+          prefix="₪"
+          style={styles.totalAmount}
+        />
+        <ThemedButton
+          title="Confirm & Set Target"
+          onPress={handleConfirm}
+          variant="primary"
+          size="lg"
+          icon="arrow-forward"
+        />
       </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc' },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', padding: 24, paddingBottom: 4 },
-  hint: { fontSize: 14, color: '#64748b', paddingHorizontal: 24, paddingBottom: 16 },
-  list: { paddingHorizontal: 24 },
-  empty: { color: '#94a3b8', textAlign: 'center', marginTop: 40 },
-  footer: { padding: 24, backgroundColor: '#fff', borderTopWidth: 1, borderTopColor: '#e2e8f0' },
-  totalLabel: { fontSize: 14, color: '#64748b' },
-  totalAmount: { fontSize: 24, fontWeight: '700', color: '#2563eb', marginVertical: 8 },
-  confirmBtn: { backgroundColor: '#2563eb', paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  confirmText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+  },
+  title: {
+    ...typography.heading2,
+    color: colors.textPrimary,
+    padding: spacing.xl,
+    paddingBottom: spacing.xs,
+  },
+  hint: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    paddingHorizontal: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  list: {
+    paddingHorizontal: spacing.xl,
+  },
+  footer: {
+    padding: spacing.xl,
+    backgroundColor: colors.surface,
+    ...shadows.lg,
+  },
+  totalLabel: {
+    ...typography.caption,
+    color: colors.textTertiary,
+  },
+  totalAmount: {
+    ...typography.heading2,
+    color: colors.primary,
+    marginVertical: spacing.sm,
+  },
 });

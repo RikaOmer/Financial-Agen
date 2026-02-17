@@ -1,7 +1,11 @@
-import React, { useState } from 'react';
-import { View, Text, TouchableOpacity, ActivityIndicator, StyleSheet } from 'react-native';
+import React, { useEffect, useRef, useState } from 'react';
+import { View, Text, Animated, Easing, StyleSheet } from 'react-native';
 import { router } from 'expo-router';
 import { useSQLiteContext } from 'expo-sqlite';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
+import { colors, typography, spacing, radius, shadows, durations } from '@/src/core/theme';
+import { ThemedCard } from '@/src/components/ThemedCard';
+import { ThemedButton } from '@/src/components/ThemedButton';
 import { useCSVImport } from '@/src/features/onboarding/hooks/useCSVImport';
 import { CSVPreviewTable } from '@/src/features/onboarding/components/CSVPreviewTable';
 import { UnrecognizedItemModal } from '@/src/features/onboarding/components/UnrecognizedItemModal';
@@ -10,23 +14,75 @@ import { useOnboardingStore } from '@/src/stores/onboarding-store';
 
 export default function CSVUploadScreen() {
   const db = useSQLiteContext();
-  const { status, error, headers, needsManualMapping, pickAndParse, duplicates, finalizeDedup } = useCSVImport(db);
-  const { csvTransactions, unrecognizedItems } = useOnboardingStore();
-  const classifyUnrecognized = useOnboardingStore((s) => s.classifyUnrecognized);
+  const { status, error, headers, needsManualMapping, pickAndParse, duplicates, finalizeDedup, parseProgress } = useCSVImport(db);
+  const { csvTransactions, unrecognizedGroups } = useOnboardingStore();
+  const classifyMerchantGroup = useOnboardingStore((s) => s.classifyMerchantGroup);
+  const skipMerchantGroup = useOnboardingStore((s) => s.skipMerchantGroup);
 
-  const [modalIndex, setModalIndex] = useState(0);
+  const [groupIndex, setGroupIndex] = useState(0);
   const [showModal, setShowModal] = useState(false);
   const [mappingAmount, setMappingAmount] = useState('');
   const [mappingDate, setMappingDate] = useState('');
   const [mappingDesc, setMappingDesc] = useState('');
+
+  // Results entrance animation
+  const resultsOpacity = useRef(new Animated.Value(0)).current;
+  const resultsTranslateY = useRef(new Animated.Value(16)).current;
+
+  // Loading spinner rotation
+  const spinAnim = useRef(new Animated.Value(0)).current;
+  const spinRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  const isLoading = status === 'picking' || status === 'parsing' || status === 'analyzing';
+
+  useEffect(() => {
+    if (isLoading) {
+      spinAnim.setValue(0);
+      spinRef.current = Animated.loop(
+        Animated.timing(spinAnim, {
+          toValue: 1,
+          duration: 1200,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      );
+      spinRef.current.start();
+    } else {
+      spinRef.current?.stop();
+    }
+  }, [isLoading, spinAnim]);
+
+  useEffect(() => {
+    if (status === 'done' && csvTransactions.length > 0) {
+      resultsOpacity.setValue(0);
+      resultsTranslateY.setValue(16);
+      Animated.parallel([
+        Animated.timing(resultsOpacity, {
+          toValue: 1,
+          duration: durations.entrance,
+          useNativeDriver: true,
+        }),
+        Animated.timing(resultsTranslateY, {
+          toValue: 0,
+          duration: durations.entrance,
+          useNativeDriver: true,
+        }),
+      ]).start();
+    }
+  }, [status, csvTransactions.length]);
+
+  const spinInterpolate = spinAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: ['0deg', '360deg'],
+  });
 
   const handleImport = async () => {
     await pickAndParse();
   };
 
   const handleContinue = () => {
-    if (unrecognizedItems.length > 0) {
-      setModalIndex(0);
+    if (unrecognizedGroups.length > 0) {
+      setGroupIndex(0);
       setShowModal(true);
     } else {
       router.push('/(onboarding)/review-commitments');
@@ -34,9 +90,10 @@ export default function CSVUploadScreen() {
   };
 
   const handleClassify = (category: string) => {
-    classifyUnrecognized(modalIndex, category);
-    if (modalIndex + 1 < unrecognizedItems.length) {
-      setModalIndex(modalIndex + 1);
+    classifyMerchantGroup(groupIndex, category);
+    const remaining = unrecognizedGroups.length - 1;
+    if (remaining > 0) {
+      setGroupIndex(Math.min(groupIndex, remaining - 1));
     } else {
       setShowModal(false);
       router.push('/(onboarding)/review-commitments');
@@ -44,62 +101,89 @@ export default function CSVUploadScreen() {
   };
 
   const handleSkip = () => {
-    if (modalIndex + 1 < unrecognizedItems.length) {
-      setModalIndex(modalIndex + 1);
+    skipMerchantGroup(groupIndex);
+    const remaining = unrecognizedGroups.length - 1;
+    if (remaining > 0) {
+      setGroupIndex(Math.min(groupIndex, remaining - 1));
     } else {
       setShowModal(false);
       router.push('/(onboarding)/review-commitments');
     }
   };
 
-  const isLoading = status === 'picking' || status === 'parsing' || status === 'analyzing';
-
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Import Bank Statement</Text>
+      <View style={styles.headerRow}>
+        <MaterialCommunityIcons name="file-upload-outline" size={48} color={colors.primary} />
+        <Text style={styles.title}>Import Bank Statements</Text>
+      </View>
       <Text style={styles.hint}>
-        Upload a CSV file from your bank or credit card to analyze your spending patterns.
+        Select one or more CSV/Excel files from your bank or credit card. You can pick multiple files at once — even from different banks or months.
       </Text>
 
-      <TouchableOpacity
-        style={[styles.importBtn, isLoading && styles.importBtnDisabled]}
+      <ThemedButton
+        title={status === 'done' ? 'Import More Files' : 'Select Bank Statements'}
         onPress={handleImport}
+        variant="primary"
+        size="lg"
+        icon="description"
+        loading={isLoading}
         disabled={isLoading}
-      >
-        {isLoading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.importText}>
-            {status === 'done' ? 'Import Another CSV' : 'Select CSV File'}
-          </Text>
-        )}
-      </TouchableOpacity>
+      />
 
-      {status === 'analyzing' && (
-        <Text style={styles.statusText}>Analyzing transactions...</Text>
+      {isLoading && (
+        <ThemedCard style={styles.loadingCard}>
+          <View style={styles.loadingContent}>
+            <Animated.View style={{ transform: [{ rotate: spinInterpolate }] }}>
+              <MaterialCommunityIcons name="loading" size={28} color={colors.primary} />
+            </Animated.View>
+            <Text style={styles.loadingText}>
+              {status === 'parsing' && parseProgress ? parseProgress : status === 'analyzing' ? 'Analyzing transactions...' : 'Opening file picker...'}
+            </Text>
+          </View>
+        </ThemedCard>
       )}
 
-      {error && <Text style={styles.errorText}>{error}</Text>}
+      {error && (
+        <ThemedCard variant={error.startsWith('Note:') ? 'warning' : 'danger'} style={styles.errorCard}>
+          <View style={styles.errorRow}>
+            <MaterialCommunityIcons
+              name={error.startsWith('Note:') ? 'alert-circle-outline' : 'close-circle-outline'}
+              size={20}
+              color={error.startsWith('Note:') ? colors.warning : colors.danger}
+            />
+            <Text style={[styles.errorText, { color: error.startsWith('Note:') ? colors.warningText : colors.dangerText }]}>
+              {error}
+            </Text>
+          </View>
+        </ThemedCard>
+      )}
 
       {status === 'done' && csvTransactions.length > 0 && (
-        <View style={styles.results}>
-          <Text style={styles.resultTitle}>
-            Found {csvTransactions.length} leisure transactions
-          </Text>
-          <CSVPreviewTable transactions={csvTransactions} maxRows={5} />
-          {unrecognizedItems.length > 0 && (
-            <Text style={styles.unrecognizedText}>
-              {unrecognizedItems.length} items need classification
+        <Animated.View style={{ opacity: resultsOpacity, transform: [{ translateY: resultsTranslateY }] }}>
+          <ThemedCard style={styles.resultsCard}>
+            <Text style={styles.resultTitle}>
+              Found {csvTransactions.length} leisure transactions
             </Text>
-          )}
-          <TouchableOpacity style={styles.continueBtn} onPress={handleContinue}>
-            <Text style={styles.continueText}>Continue</Text>
-          </TouchableOpacity>
-        </View>
+            <CSVPreviewTable transactions={csvTransactions} maxRows={5} />
+            {unrecognizedGroups.length > 0 && (
+              <Text style={styles.unrecognizedText}>
+                {unrecognizedGroups.length} merchant{unrecognizedGroups.length > 1 ? 's' : ''} need classification
+              </Text>
+            )}
+            <ThemedButton
+              title="Continue"
+              onPress={handleContinue}
+              variant="success"
+              size="lg"
+              style={styles.continueBtn}
+            />
+          </ThemedCard>
+        </Animated.View>
       )}
 
       {needsManualMapping && headers.length > 0 && (
-        <View style={styles.results}>
+        <ThemedCard style={styles.resultsCard}>
           <Text style={styles.resultTitle}>Could not auto-detect columns</Text>
           <Text style={styles.mappingHint}>Select which column contains each field:</Text>
           {[
@@ -110,31 +194,34 @@ export default function CSVUploadScreen() {
             <View key={label} style={styles.mappingRow}>
               <Text style={styles.mappingLabel}>{label}:</Text>
               <View style={styles.mappingChips}>
-                {headers.map((h) => (
-                  <TouchableOpacity
-                    key={h}
-                    style={[styles.mappingChip, value === h && styles.mappingChipActive]}
+                {headers.map((h, idx) => (
+                  <ThemedButton
+                    key={`${idx}-${h}`}
+                    title={h}
+                    variant={value === h ? 'primary' : 'secondary'}
+                    size="sm"
                     onPress={() => setter(h)}
-                  >
-                    <Text style={[styles.mappingChipText, value === h && styles.mappingChipTextActive]}>{h}</Text>
-                  </TouchableOpacity>
+                    style={styles.mappingChip}
+                  />
                 ))}
               </View>
             </View>
           ))}
-          <TouchableOpacity
-            style={[styles.continueBtn, (!mappingAmount || !mappingDate || !mappingDesc) && styles.importBtnDisabled]}
-            disabled={!mappingAmount || !mappingDate || !mappingDesc}
+          <ThemedButton
+            title="Apply Mapping"
             onPress={() => pickAndParse({ amount: mappingAmount, date: mappingDate, description: mappingDesc })}
-          >
-            <Text style={styles.continueText}>Apply Mapping</Text>
-          </TouchableOpacity>
-        </View>
+            variant="success"
+            size="lg"
+            disabled={!mappingAmount || !mappingDate || !mappingDesc}
+            style={styles.continueBtn}
+          />
+        </ThemedCard>
       )}
 
       <UnrecognizedItemModal
         visible={showModal}
-        item={unrecognizedItems[modalIndex] ?? null}
+        group={unrecognizedGroups[groupIndex] ?? null}
+        remaining={unrecognizedGroups.length}
         onClassify={handleClassify}
         onSkip={handleSkip}
       />
@@ -151,25 +238,85 @@ export default function CSVUploadScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f8fafc', padding: 24 },
-  title: { fontSize: 24, fontWeight: '700', color: '#1a1a1a', marginBottom: 8 },
-  hint: { fontSize: 15, color: '#64748b', lineHeight: 22, marginBottom: 24 },
-  importBtn: { backgroundColor: '#2563eb', paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  importBtnDisabled: { opacity: 0.6 },
-  importText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  statusText: { color: '#2563eb', marginTop: 12, textAlign: 'center' },
-  errorText: { color: '#dc2626', marginTop: 12 },
-  results: { marginTop: 24 },
-  resultTitle: { fontSize: 17, fontWeight: '600', color: '#1a1a1a', marginBottom: 8 },
-  unrecognizedText: { color: '#f59e0b', marginTop: 8 },
-  continueBtn: { backgroundColor: '#16a34a', paddingVertical: 14, borderRadius: 12, alignItems: 'center', marginTop: 16 },
-  continueText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  mappingHint: { fontSize: 14, color: '#64748b', marginBottom: 12 },
-  mappingRow: { marginBottom: 12 },
-  mappingLabel: { fontSize: 14, fontWeight: '600', color: '#374151', marginBottom: 6 },
-  mappingChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
-  mappingChip: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 16, backgroundColor: '#f1f5f9', borderWidth: 1, borderColor: '#e2e8f0' },
-  mappingChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  mappingChipText: { fontSize: 12, color: '#64748b' },
-  mappingChipTextActive: { color: '#fff', fontWeight: '600' },
+  container: {
+    flex: 1,
+    backgroundColor: colors.background,
+    padding: spacing.xl,
+  },
+  headerRow: {
+    alignItems: 'center',
+    marginBottom: spacing.sm,
+  },
+  title: {
+    ...typography.heading2,
+    color: colors.textPrimary,
+    marginTop: spacing.sm,
+  },
+  hint: {
+    ...typography.body,
+    color: colors.textTertiary,
+    marginBottom: spacing.xl,
+  },
+  loadingCard: {
+    marginTop: spacing.lg,
+  },
+  loadingContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.md,
+  },
+  loadingText: {
+    ...typography.bodyMedium,
+    color: colors.primary,
+  },
+  errorCard: {
+    marginTop: spacing.md,
+  },
+  errorRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  errorText: {
+    ...typography.body,
+    flex: 1,
+  },
+  resultsCard: {
+    marginTop: spacing.xl,
+  },
+  resultTitle: {
+    ...typography.heading4,
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  unrecognizedText: {
+    ...typography.caption,
+    color: colors.warning,
+    marginTop: spacing.sm,
+  },
+  continueBtn: {
+    marginTop: spacing.lg,
+  },
+  mappingHint: {
+    ...typography.caption,
+    color: colors.textTertiary,
+    marginBottom: spacing.md,
+  },
+  mappingRow: {
+    marginBottom: spacing.md,
+  },
+  mappingLabel: {
+    ...typography.label,
+    color: colors.textSecondary,
+    marginBottom: spacing.xs,
+  },
+  mappingChips: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+  },
+  mappingChip: {
+    paddingVertical: 10,
+  },
 });

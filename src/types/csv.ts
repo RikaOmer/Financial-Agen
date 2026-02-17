@@ -6,6 +6,8 @@ export interface ColumnMapping {
   amount: string;
   date: string;
   description: string;
+  /** Optional secondary column (e.g. פירוט) appended to description for installment detection */
+  details?: string;
 }
 
 export interface NormalizedTransaction {
