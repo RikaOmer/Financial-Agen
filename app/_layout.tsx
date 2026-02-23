@@ -13,6 +13,7 @@ import { DATABASE_NAME } from '@/src/core/db/database';
 import { runMonthTransition } from '@/src/features/budget/utils/month-transition';
 import { useSQLiteContext } from 'expo-sqlite';
 import { useSettingsStore } from '@/src/stores/settings-store';
+import { useBehavioralStore } from '@/src/stores/behavioral-store';
 import { ToastProvider } from '@/src/components/Toast';
 import { LoadingSkeleton } from '@/src/components/LoadingSkeleton';
 import { colors, shadows, spacing } from '@/src/core/theme';
@@ -33,6 +34,7 @@ function StartupRunner() {
     runMonthTransition(db);
     useSettingsStore.getState().loadApiKey();
     useSettingsStore.getState().hydrateFromDB(db);
+    useBehavioralStore.getState().loadBehavioralContext(db);
   }, [db]);
   return null;
 }

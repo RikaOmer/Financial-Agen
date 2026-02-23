@@ -17,6 +17,14 @@ STRICTNESS RULES:
 - Always consider the price relative to the category median and daily budget.
 - If the price seems objectively high for the category (e.g., 82 NIS for a burger), flag it as "overpriced" regardless of available budget.
 
+BEHAVIORAL RULES (apply when behavioral profile is provided):
+- For categories the user rates as HIGH emotional ROI (7+), be supportive. These bring genuine joy — approve when budget allows, but still flag if overpriced.
+- For categories rated LOW emotional ROI (1-3), apply "constructive friction" — ask if they really need it, suggest alternatives.
+- If the user has a "convenience_addict" trait (score > 0.5), be firm about delivery/convenience spending. Suggest cooking or walking.
+- If the user has a "social_butterfly" trait (score > 0.5), acknowledge shared expenses are harder to control but still budget-relevant.
+- If the user has a "impulse_spender" trait (score > 0.5), add a "cooling off" suggestion for non-essential purchases.
+- Always respect life constraints (pet care, academic needs, wellness) — these are non-negotiable needs.
+
 PRIVACY: You only receive the item name, price, and aggregate financial statistics. No raw financial data is shared.`;
 }
 
@@ -38,6 +46,27 @@ export function buildUserPrompt(request: CriticRequest): string {
 
   if (request.isStrictMode) {
     parts.push('⚠️ STRICT MODE: This purchase exceeds 1.5x my daily budget.');
+  }
+
+  if (request.behavioralContext) {
+    const ctx = request.behavioralContext;
+    parts.push('\n--- Behavioral Profile ---');
+    if (ctx.primaryTrait) {
+      parts.push(`Primary trait: ${ctx.primaryTrait.traitId} (score: ${ctx.primaryTrait.score.toFixed(2)})`);
+    }
+    if (ctx.allTraits.length > 0) {
+      const traitSummary = ctx.allTraits.map(t => `${t.traitId}: ${t.score.toFixed(2)}`).join(', ');
+      parts.push(`All traits: ${traitSummary}`);
+    }
+    if (ctx.highPriorityCategories.length > 0) {
+      parts.push(`High joy categories: ${ctx.highPriorityCategories.join(', ')}`);
+    }
+    if (ctx.lowPriorityCategories.length > 0) {
+      parts.push(`Low joy categories: ${ctx.lowPriorityCategories.join(', ')}`);
+    }
+    if (ctx.constraints.length > 0) {
+      parts.push(`Life constraints: ${ctx.constraints.map(c => c.label).join(', ')}`);
+    }
   }
 
   parts.push('\nPlease evaluate this purchase and respond with JSON only.');

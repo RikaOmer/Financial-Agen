@@ -1,3 +1,5 @@
+import type { BehavioralContext } from './behavioral';
+
 export interface CriticRequest {
   itemName: string;
   price: number;
@@ -6,6 +8,7 @@ export interface CriticRequest {
   historicalMedian: number | null;
   savingsGoalDistance: number | null;
   isStrictMode: boolean;
+  behavioralContext?: BehavioralContext;
 }
 
 export interface CriticVerdict {

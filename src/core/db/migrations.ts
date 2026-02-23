@@ -32,4 +32,30 @@ export async function runMigrations(db: SQLiteDatabase): Promise<void> {
       value TEXT NOT NULL
     );
   `);
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS user_traits (
+      trait_id TEXT PRIMARY KEY,
+      score REAL DEFAULT 0.0,
+      last_updated DATETIME
+    );
+  `);
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS category_config (
+      category_name TEXT PRIMARY KEY,
+      emotional_priority INTEGER,
+      is_functional INTEGER,
+      notes TEXT
+    );
+  `);
+
+  await db.execAsync(`
+    CREATE TABLE IF NOT EXISTS interview_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      transaction_id INTEGER,
+      flag_reason TEXT,
+      status TEXT DEFAULT 'pending'
+    );
+  `);
 }
