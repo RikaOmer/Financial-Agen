@@ -99,13 +99,14 @@ export default function CommitmentsScreen() {
       category: newCategory,
     });
 
+    const savedName = newName.trim();
     setShowAdd(false);
     setNewName('');
     setNewAmount('');
     setNewInstallments('');
     await load();
     await refreshBudget(db);
-    showToast(`Added "${newName.trim()}"`, 'success');
+    showToast(`Added "${savedName}"`, 'success');
   };
 
   const handleDelete = (id: number, name: string) => {
@@ -191,7 +192,15 @@ export default function CommitmentsScreen() {
           <View style={styles.emptyContainer}>
             <MaterialCommunityIcons name="file-document-outline" size={56} color={colors.textDisabled} />
             <Text style={styles.emptyTitle}>No commitments yet</Text>
-            <Text style={styles.emptyText}>Add subscriptions or installments to track.</Text>
+            <Text style={styles.emptyText}>Track your subscriptions and installments to get a more accurate daily budget.</Text>
+            <ThemedButton
+              title="Add Your First Commitment"
+              onPress={() => setShowAdd(true)}
+              variant="primary"
+              size="md"
+              icon="add"
+              style={{ marginTop: spacing.lg }}
+            />
           </View>
         }
         ListFooterComponent={
@@ -393,8 +402,8 @@ const styles = StyleSheet.create({
     marginEnd: spacing.md,
   },
   deleteBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radius.circle,
     backgroundColor: colors.dangerBg,
     alignItems: 'center',

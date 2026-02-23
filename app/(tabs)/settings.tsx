@@ -10,6 +10,7 @@ import {
   Platform,
   StyleSheet,
 } from 'react-native';
+
 import { useSQLiteContext } from 'expo-sqlite';
 import { router } from 'expo-router';
 import { MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -241,8 +242,20 @@ export default function SettingsScreen() {
   };
 
   const handleReimport = () => {
-    useOnboardingStore.getState().reset();
-    router.push('/(onboarding)/csv-upload');
+    Alert.alert(
+      'Re-import Statement',
+      'This will open the import flow to add new bank statements. Your existing data is preserved.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Continue',
+          onPress: () => {
+            useOnboardingStore.getState().reset();
+            router.push('/(onboarding)/csv-upload');
+          },
+        },
+      ],
+    );
   };
 
   const handleResetOnboarding = () => {
@@ -272,9 +285,14 @@ export default function SettingsScreen() {
     >
       {/* AI Configuration */}
       <SectionCard iconName="robot-outline" title="AI Configuration">
-        <Text style={styles.hint}>
-          {apiKey ? 'Key stored securely. Enter new key to replace.' : 'Enter your Anthropic API key for AI Critic.'}
-        </Text>
+        {apiKey ? (
+          <View style={styles.apiKeyStatus}>
+            <MaterialCommunityIcons name="check-circle" size={16} color={colors.success} />
+            <Text style={[styles.hint, { color: colors.success, marginBottom: 0 }]}>API key stored securely</Text>
+          </View>
+        ) : (
+          <Text style={styles.hint}>Enter your Anthropic API key to enable the AI Critic.</Text>
+        )}
         <View style={styles.row}>
           <AnimatedInput
             value={apiKeyInput}
@@ -440,6 +458,12 @@ const styles = StyleSheet.create({
     color: colors.textTertiary,
     marginBottom: spacing.sm,
   },
+  apiKeyStatus: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.sm,
+  },
   row: {
     flexDirection: 'row',
     gap: spacing.sm,
@@ -476,8 +500,8 @@ const styles = StyleSheet.create({
     marginTop: spacing.xxs,
   },
   eventDeleteBtn: {
-    width: 36,
-    height: 36,
+    width: 44,
+    height: 44,
     borderRadius: radius.circle,
     backgroundColor: colors.dangerBg,
     alignItems: 'center',

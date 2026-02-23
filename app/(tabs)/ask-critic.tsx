@@ -72,7 +72,8 @@ function ThinkingIndicator() {
         <Animated.View style={[thinkingStyles.dot, { opacity: dot2 }]} />
         <Animated.View style={[thinkingStyles.dot, { opacity: dot3 }]} />
       </View>
-      <Text style={thinkingStyles.text}>The Critic is thinking...</Text>
+      <Text style={thinkingStyles.text}>Analyzing your purchase...</Text>
+      <Text style={thinkingStyles.subtext}>Checking budget, history, and alternatives</Text>
     </View>
   );
 }
@@ -97,6 +98,11 @@ const thinkingStyles = StyleSheet.create({
     ...typography.bodyMedium,
     color: colors.textTertiary,
     marginTop: spacing.md,
+  },
+  subtext: {
+    ...typography.caption,
+    color: colors.textDisabled,
+    marginTop: spacing.xs,
   },
 });
 
@@ -188,7 +194,7 @@ export default function AskCriticScreen() {
             variant="primary"
             size="lg"
             icon="smart-toy"
-            style={{ ...styles.evaluateBtn, backgroundColor: colors.purple }}
+            style={styles.evaluateBtn}
           />
         </>
       )}
@@ -216,16 +222,17 @@ export default function AskCriticScreen() {
             <ThemedButton
               title="Buy Anyway"
               onPress={handleBuyAnyway}
-              variant="secondary"
+              variant="danger"
               size="lg"
               icon="shopping-cart"
-              style={{ ...styles.actionBtn, backgroundColor: colors.warning }}
+              style={styles.actionBtn}
             />
             <ThemedButton
-              title="Skip"
+              title="Skip It"
               onPress={handleSkip}
-              variant="outline"
+              variant="success"
               size="lg"
+              icon="check"
               style={styles.actionBtn}
             />
           </View>

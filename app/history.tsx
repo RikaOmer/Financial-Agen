@@ -146,11 +146,14 @@ export default function HistoryScreen() {
       <View style={styles.monthPicker}>
         <Animated.View style={{ transform: [{ scale: arrowLeftScale }] }}>
           <Pressable onPress={goBack} style={styles.arrowBtn} hitSlop={8}>
-            <MaterialIcons name="chevron-left" size={28} color={colors.primary} />
+            <MaterialIcons name="chevron-left" size={30} color={colors.primary} />
           </Pressable>
         </Animated.View>
 
-        <Text style={styles.monthLabel}>{monthLabel}</Text>
+        <View style={{ alignItems: 'center' }}>
+          <Text style={styles.monthLabel}>{monthLabel}</Text>
+          {isCurrentMonth && <Text style={styles.currentMonthHint}>Current month</Text>}
+        </View>
 
         <Animated.View style={{ transform: [{ scale: arrowRightScale }] }}>
           <Pressable
@@ -161,7 +164,7 @@ export default function HistoryScreen() {
           >
             <MaterialIcons
               name="chevron-right"
-              size={28}
+              size={30}
               color={isCurrentMonth ? colors.textDisabled : colors.primary}
             />
           </Pressable>
@@ -217,7 +220,11 @@ export default function HistoryScreen() {
             <View style={styles.emptyContainer}>
               <MaterialCommunityIcons name="receipt-text-outline" size={56} color={colors.textDisabled} />
               <Text style={styles.emptyTitle}>No transactions</Text>
-              <Text style={styles.emptyText}>No spending recorded for this month.</Text>
+              <Text style={styles.emptyText}>
+                {isCurrentMonth
+                  ? 'No spending recorded yet this month. Expenses you add will appear here.'
+                  : 'No spending was recorded for this month.'}
+              </Text>
             </View>
           }
           contentContainerStyle={styles.list}
@@ -243,9 +250,10 @@ const styles = StyleSheet.create({
     borderBottomColor: colors.border,
   },
   arrowBtn: {
-    width: 40,
-    height: 40,
+    width: 48,
+    height: 48,
     borderRadius: radius.circle,
+    backgroundColor: colors.borderLight,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -255,6 +263,11 @@ const styles = StyleSheet.create({
   monthLabel: {
     ...typography.heading3,
     color: colors.textPrimary,
+  },
+  currentMonthHint: {
+    ...typography.caption,
+    color: colors.primary,
+    marginTop: spacing.xxs,
   },
   totalCard: {
     marginHorizontal: spacing.lg,
@@ -298,8 +311,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   dateTotalText: {
-    ...typography.captionMedium,
-    color: colors.textTertiary,
+    ...typography.bodySemiBold,
+    color: colors.textSecondary,
   },
   txRow: {
     flexDirection: 'row',

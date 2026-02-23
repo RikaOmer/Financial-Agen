@@ -61,6 +61,6 @@ export function LoadingSkeleton({ width, height, borderRadius, preset, style }: 
 
 const styles = StyleSheet.create({
   skeleton: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.borderLight,
   },
 });

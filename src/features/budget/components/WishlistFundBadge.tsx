@@ -17,6 +17,9 @@ export function WishlistFundBadge({ amount, goalName, goalAmount }: Props) {
   const slideAnim = useRef(new Animated.Value(20)).current;
   const fadeAnim = useRef(new Animated.Value(0)).current;
 
+  // Don't show the badge if there's nothing to display
+  if (amount <= 0 && !goalName) return null;
+
   useEffect(() => {
     Animated.parallel([
       Animated.timing(slideAnim, {

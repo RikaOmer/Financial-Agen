@@ -21,7 +21,7 @@ interface Props {
 }
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
-const DISMISS_THRESHOLD = 100;
+const DISMISS_THRESHOLD = 130;
 
 export function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets();

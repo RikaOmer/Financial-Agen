@@ -7,9 +7,9 @@ import { ThemedCard } from '@/src/components/ThemedCard';
 import { ThemedButton } from '@/src/components/ThemedButton';
 
 const FEATURES = [
-  { icon: 'magnify' as const, text: 'Analyze your spending DNA from bank statements' },
-  { icon: 'repeat' as const, text: 'Track subscriptions & installments' },
-  { icon: 'robot' as const, text: 'Get AI critique before every purchase' },
+  { icon: 'magnify' as const, text: 'Import bank statements to understand your habits' },
+  { icon: 'repeat' as const, text: 'Automatically detect subscriptions & installments' },
+  { icon: 'robot' as const, text: 'AI coach that helps you decide before you buy' },
 ];
 
 export default function WelcomeScreen() {
@@ -90,7 +90,7 @@ export default function WelcomeScreen() {
         </View>
         <Text style={styles.title}>Financial Twin</Text>
         <Text style={styles.subtitle}>
-          Take control of your leisure spending with AI-powered insights
+          Spend less on things that don't matter.{'\n'}Save more for things that do.
         </Text>
       </Animated.View>
 
@@ -130,9 +130,9 @@ export default function WelcomeScreen() {
           size="lg"
         />
         <ThemedButton
-          title="Skip Import - Set Budget Manually"
+          title="I don't have a CSV — set budget manually"
           onPress={() => router.push('/(onboarding)/set-target')}
-          variant="outline"
+          variant="ghost"
           size="lg"
           style={styles.skipButton}
         />

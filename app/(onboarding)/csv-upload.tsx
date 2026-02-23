@@ -117,9 +117,11 @@ export default function CSVUploadScreen() {
         <MaterialCommunityIcons name="file-upload-outline" size={48} color={colors.primary} />
         <Text style={styles.title}>Import Bank Statements</Text>
       </View>
-      <Text style={styles.hint}>
-        Select one or more CSV/Excel files from your bank or credit card. You can pick multiple files at once — even from different banks or months.
-      </Text>
+      <View style={styles.hintList}>
+        <Text style={styles.hintItem}>• CSV or Excel files from your bank</Text>
+        <Text style={styles.hintItem}>• Multiple files at once — even different banks</Text>
+        <Text style={styles.hintItem}>• We only analyze leisure categories</Text>
+      </View>
 
       <ThemedButton
         title={status === 'done' ? 'Import More Files' : 'Select Bank Statements'}
@@ -138,7 +140,11 @@ export default function CSVUploadScreen() {
               <MaterialCommunityIcons name="loading" size={28} color={colors.primary} />
             </Animated.View>
             <Text style={styles.loadingText}>
-              {status === 'parsing' && parseProgress ? parseProgress : status === 'analyzing' ? 'Analyzing transactions...' : 'Opening file picker...'}
+              {status === 'parsing' && parseProgress
+                ? parseProgress
+                : status === 'analyzing'
+                ? 'Detecting leisure spending & subscriptions...'
+                : 'Opening file picker...'}
             </Text>
           </View>
         </ThemedCard>
@@ -184,8 +190,8 @@ export default function CSVUploadScreen() {
 
       {needsManualMapping && headers.length > 0 && (
         <ThemedCard style={styles.resultsCard}>
-          <Text style={styles.resultTitle}>Could not auto-detect columns</Text>
-          <Text style={styles.mappingHint}>Select which column contains each field:</Text>
+          <Text style={styles.resultTitle}>Help us read your file</Text>
+          <Text style={styles.mappingHint}>Tap the column name that matches each field below:</Text>
           {[
             { label: 'Amount', value: mappingAmount, setter: setMappingAmount },
             { label: 'Date', value: mappingDate, setter: setMappingDate },
@@ -252,10 +258,14 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginTop: spacing.sm,
   },
-  hint: {
+  hintList: {
+    marginBottom: spacing.xl,
+    gap: spacing.xs,
+  },
+  hintItem: {
     ...typography.body,
     color: colors.textTertiary,
-    marginBottom: spacing.xl,
+    lineHeight: 24,
   },
   loadingCard: {
     marginTop: spacing.lg,

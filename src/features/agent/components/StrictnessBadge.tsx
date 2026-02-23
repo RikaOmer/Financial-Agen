@@ -8,55 +8,21 @@ interface Props {
 }
 
 export function StrictnessBadge({ isStrict }: Props) {
-  const shakeAnim = useRef(new Animated.Value(0)).current;
-  const borderOpacity = useRef(new Animated.Value(1)).current;
+  const fadeAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    if (!isStrict) return;
-
-    // Shake entrance: 0 -> 5 -> -5 -> 3 -> -3 -> 0
-    Animated.sequence([
-      Animated.timing(shakeAnim, { toValue: 5, duration: 80, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -5, duration: 80, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 3, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: -3, duration: 60, useNativeDriver: true }),
-      Animated.timing(shakeAnim, { toValue: 0, duration: 50, useNativeDriver: true }),
-    ]).start();
-
-    // Pulsing border opacity: 0.5 <-> 1.0
-    const pulse = Animated.loop(
-      Animated.sequence([
-        Animated.timing(borderOpacity, {
-          toValue: 0.5,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-        Animated.timing(borderOpacity, {
-          toValue: 1,
-          duration: 800,
-          easing: Easing.inOut(Easing.ease),
-          useNativeDriver: true,
-        }),
-      ]),
-    );
-    pulse.start();
-
-    return () => pulse.stop();
-  }, [isStrict, shakeAnim, borderOpacity]);
+    Animated.timing(fadeAnim, {
+      toValue: isStrict ? 1 : 0,
+      duration: 300,
+      easing: Easing.inOut(Easing.ease),
+      useNativeDriver: true,
+    }).start();
+  }, [isStrict, fadeAnim]);
 
   if (!isStrict) return null;
 
   return (
-    <Animated.View
-      style={[
-        styles.badge,
-        {
-          transform: [{ translateX: shakeAnim }],
-          opacity: borderOpacity,
-        },
-      ]}
-    >
+    <Animated.View style={[styles.badge, { opacity: fadeAnim }]}>
       <View style={styles.content}>
         <MaterialIcons
           name="warning-amber"
@@ -66,7 +32,9 @@ export function StrictnessBadge({ isStrict }: Props) {
         />
         <Text style={styles.text}>STRICT MODE</Text>
       </View>
-      <Text style={styles.hint}>Price exceeds 1.5x daily budget</Text>
+      <Text style={styles.hint}>
+        This purchase is significantly above your daily budget — the Critic will evaluate more carefully.
+      </Text>
     </Animated.View>
   );
 }

@@ -83,8 +83,9 @@ export default function SetTargetScreen() {
         </ThemedCard>
       )}
 
-      <Text style={styles.label}>Monthly Leisure Target</Text>
+      <Text style={styles.label}>Monthly Leisure Target (₪)</Text>
       <Animated.View style={[styles.inputWrapper, { borderColor: getBorderColor(targetBorderAnim) }]}>
+        <Text style={styles.inputPrefix}>₪</Text>
         <TextInput
           style={styles.input}
           value={target}
@@ -95,6 +96,15 @@ export default function SetTargetScreen() {
           onBlur={() => animateBorder(targetBorderAnim, false)}
         />
       </Animated.View>
+
+      {targetNum > 0 && (
+        <View style={styles.dailyPreview}>
+          <MaterialCommunityIcons name="calendar-today" size={16} color={colors.success} />
+          <Text style={styles.dailyPreviewText}>
+            ≈ {formatNIS(Math.round(targetNum / 30))}/day to spend on leisure
+          </Text>
+        </View>
+      )}
 
       <View style={styles.divider}>
         <View style={styles.dividerLine} />
@@ -129,11 +139,11 @@ export default function SetTargetScreen() {
       </Animated.View>
 
       <ThemedButton
-        title="Start Tracking"
+        title="Review & Finish Setup"
         onPress={handleFinish}
         variant="success"
         size="lg"
-        icon="rocket-launch"
+        icon="check"
         disabled={!target}
         style={styles.finishBtn}
       />
@@ -147,6 +157,10 @@ export default function SetTargetScreen() {
           <View style={styles.confirmRow}>
             <Text style={styles.confirmLabel}>Monthly target</Text>
             <Text style={styles.confirmValue}>{formatNIS(targetNum)}</Text>
+          </View>
+          <View style={styles.confirmRow}>
+            <Text style={styles.confirmLabel}>Daily budget (approx.)</Text>
+            <Text style={[styles.confirmValue, { color: colors.success }]}>{formatNIS(Math.round(targetNum / 30))}</Text>
           </View>
           {savingsName ? (
             <View style={styles.confirmRow}>
@@ -222,12 +236,33 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: radius.md,
     backgroundColor: colors.surface,
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  inputPrefix: {
+    ...typography.heading3,
+    color: colors.textTertiary,
+    paddingStart: spacing.lg,
   },
   input: {
-    paddingHorizontal: spacing.lg,
+    flex: 1,
+    paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     ...typography.body,
-    fontSize: 16,
+    fontSize: 20,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  dailyPreview: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+  },
+  dailyPreviewText: {
+    ...typography.captionMedium,
+    color: colors.success,
   },
   divider: {
     flexDirection: 'row',

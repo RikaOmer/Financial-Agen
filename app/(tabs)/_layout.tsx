@@ -24,13 +24,17 @@ export default function TabLayout() {
         tabBarActiveTintColor: colors.primary,
         tabBarInactiveTintColor: colors.textDisabled,
         tabBarStyle: {
-          height: 60,
+          height: 64,
           backgroundColor: colors.surface,
-          borderTopWidth: 0,
+          borderTopWidth: 1,
+          borderTopColor: colors.borderLight,
+          paddingBottom: 4,
+          paddingTop: 4,
           ...shadows.sm,
         },
         tabBarLabelStyle: {
           fontSize: 11,
+          fontWeight: '500',
         },
         tabBarIconStyle: {
           marginTop: 2,
@@ -59,12 +63,12 @@ export default function TabLayout() {
       <Tabs.Screen
         name="add-expense"
         options={{
-          title: 'Add Expense',
+          title: 'Add',
           tabBarIcon: ({ focused }) => (
             <TabBarIcon
               name={focused ? iconMap.addExpense.active : iconMap.addExpense.inactive}
               color={colors.success}
-              size={24}
+              size={28}
             />
           ),
         }}

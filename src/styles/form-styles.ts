@@ -26,8 +26,10 @@ export const formStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    ...typography.body,
     fontSize: 16,
+    color: colors.textPrimary,
   },
 });

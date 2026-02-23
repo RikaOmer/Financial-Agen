@@ -79,12 +79,13 @@ const styles = StyleSheet.create({
   chip: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.lg,
-    paddingVertical: 10,
-    borderRadius: radius.xxl,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    borderRadius: radius.lg,
     backgroundColor: colors.borderLight,
     borderWidth: 1,
     borderColor: colors.border,
+    minHeight: 40,
   },
   chipActive: {
     backgroundColor: colors.primary,

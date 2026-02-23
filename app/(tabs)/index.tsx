@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { View, Text, ScrollView, Pressable, TextInput, Animated, StyleSheet, Platform } from 'react-native';
+import { View, Text, ScrollView, Pressable, TextInput, Animated, Alert, StyleSheet, Platform } from 'react-native';
 import { useSQLiteContext } from 'expo-sqlite';
 import { router } from 'expo-router';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
@@ -87,11 +87,24 @@ export default function DashboardScreen() {
     setEditingTx(tx);
   };
 
-  const handleDelete = async () => {
+  const handleDelete = () => {
     if (!editingTx) return;
-    await deleteTransaction(db, editingTx.id);
-    setEditingTx(null);
-    await Promise.all([refreshList(), refreshBudget(db)]);
+    Alert.alert(
+      'Delete Transaction',
+      `Remove "${editingTx.description}" (${formatNIS(editingTx.amount)})?`,
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            await deleteTransaction(db, editingTx.id);
+            setEditingTx(null);
+            await Promise.all([refreshList(), refreshBudget(db)]);
+          },
+        },
+      ],
+    );
   };
 
   const handleSaveEdit = async () => {
@@ -195,8 +208,14 @@ export default function DashboardScreen() {
 
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>Today's Transactions</Text>
-          <Pressable onPress={() => router.push('/history')} android_ripple={{ color: colors.primaryBg, radius: 40 }}>
+          <Pressable
+            onPress={() => router.push('/history')}
+            android_ripple={{ color: colors.primaryBg }}
+            style={styles.viewAllBtn}
+            hitSlop={8}
+          >
             <Text style={styles.viewAllText}>View All</Text>
+            <MaterialCommunityIcons name="chevron-right" size={18} color={colors.primary} />
           </Pressable>
         </View>
 
@@ -204,26 +223,32 @@ export default function DashboardScreen() {
           <EmptyState
             icon="celebration"
             title="No spending today"
-            description="Keep it up!"
+            description="Keep it up! Add an expense when you spend."
+            actionTitle="Add Expense"
+            onAction={() => router.push('/(tabs)/add-expense')}
           />
         ) : (
-          todayTxns.map((tx) => {
-            const categoryIcon = CATEGORY_ICONS[tx.category] || CATEGORY_ICONS.other;
-            return (
-              <Pressable
-                key={tx.id}
-                style={styles.txRow}
-                onLongPress={() => handleLongPress(tx)}
-                android_ripple={Platform.OS === 'android' ? { color: colors.primaryBg } : undefined}
-              >
-                <View style={styles.txIconWrap}>
-                  <MaterialCommunityIcons name={categoryIcon} size={20} color={colors.textTertiary} />
-                </View>
-                <Text style={styles.txDesc} numberOfLines={1}>{tx.description}</Text>
-                <Text style={styles.txAmount}>{formatNIS(tx.amount)}</Text>
-              </Pressable>
-            );
-          })
+          <>
+            {todayTxns.map((tx) => {
+              const categoryIcon = CATEGORY_ICONS[tx.category] || CATEGORY_ICONS.other;
+              return (
+                <Pressable
+                  key={tx.id}
+                  style={styles.txRow}
+                  onLongPress={() => handleLongPress(tx)}
+                  android_ripple={Platform.OS === 'android' ? { color: colors.primaryBg } : undefined}
+                  accessibilityHint="Long press to edit or delete"
+                >
+                  <View style={styles.txIconWrap}>
+                    <MaterialCommunityIcons name={categoryIcon} size={20} color={colors.textTertiary} />
+                  </View>
+                  <Text style={styles.txDesc} numberOfLines={1}>{tx.description}</Text>
+                  <Text style={styles.txAmount}>{formatNIS(tx.amount)}</Text>
+                </Pressable>
+              );
+            })}
+            <Text style={styles.longPressHint}>Long press a transaction to edit or delete</Text>
+          </>
         )}
       </ScrollView>
 
@@ -315,6 +340,14 @@ const styles = StyleSheet.create({
     ...typography.heading4,
     color: colors.textPrimary,
   },
+  viewAllBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    borderRadius: radius.md,
+    gap: spacing.xxs,
+  },
   viewAllText: {
     ...typography.bodyMedium,
     color: colors.primary,
@@ -345,6 +378,13 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
     marginStart: spacing.md,
   },
+  longPressHint: {
+    ...typography.caption,
+    color: colors.textDisabled,
+    textAlign: 'center',
+    marginTop: spacing.md,
+    fontStyle: 'italic',
+  },
   editLabel: {
     ...typography.label,
     color: colors.textSecondary,
@@ -356,9 +396,11 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
     borderRadius: radius.md,
-    paddingHorizontal: 14,
+    paddingHorizontal: spacing.lg,
     paddingVertical: spacing.md,
+    ...typography.body,
     fontSize: 16,
+    color: colors.textPrimary,
   },
   editActions: {
     flexDirection: 'row',

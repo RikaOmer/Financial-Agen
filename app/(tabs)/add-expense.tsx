@@ -18,6 +18,7 @@ import { ThemedButton } from '@/src/components/ThemedButton';
 import { AnimatedNumber } from '@/src/components/AnimatedNumber';
 import { useToast } from '@/src/components/Toast';
 import { formatDate } from '@/src/utils/date';
+import { formatNIS } from '@/src/utils/currency';
 import { isValidAmount, isValidDescription } from '@/src/utils/validation';
 import { formStyles } from '@/src/styles/form-styles';
 import { colors, typography, spacing, radius, durations } from '@/src/core/theme';
@@ -114,6 +115,15 @@ export default function AddExpenseScreen() {
         />
       </View>
 
+      {parseFloat(amount) > 0 && parseFloat(amount) > dailyBudget && (
+        <View style={styles.budgetWarning}>
+          <MaterialCommunityIcons name="alert-outline" size={16} color={colors.warningText} />
+          <Text style={styles.budgetWarningText}>
+            This exceeds your daily budget by {formatNIS(parseFloat(amount) - dailyBudget)}
+          </Text>
+        </View>
+      )}
+
       <Text style={formStyles.label}>Description</Text>
       <TextInput
         style={formStyles.input}
@@ -153,7 +163,7 @@ export default function AddExpenseScreen() {
       </Animated.View>
 
       <Text style={styles.dateText}>
-        Date: {formatDate(new Date())}
+        Today, {formatDate(new Date())}
       </Text>
     </ScrollView>
   );
@@ -179,6 +189,22 @@ const styles = StyleSheet.create({
   budgetValue: {
     ...typography.heading3,
     color: colors.primary,
+  },
+  budgetWarning: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: colors.warningBg,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    marginTop: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.warningBorder,
+  },
+  budgetWarningText: {
+    ...typography.caption,
+    color: colors.warningText,
+    flex: 1,
   },
   amountInputWrap: {
     flexDirection: 'row',
